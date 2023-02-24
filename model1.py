@@ -298,7 +298,7 @@ if __name__ == "__main__":
     image_datasets = {x: MyDataset(data_dir, metadata, data_transforms[x], sorted(list(splits[x]))) for x in ['train','val','test']}
     
     
-    dataloaders = {x: torch.utils.data.DataLoader(image_datasets[x], batch_size=4,
+    dataloaders = {x: torch.utils.data.DataLoader(image_datasets[x], batch_size=16,
                                                  shuffle=True, num_workers=0, collate_fn=collate_fn)
                   for x in ['train', 'val']}
     
@@ -346,7 +346,7 @@ if __name__ == "__main__":
     criterion = nn.CrossEntropyLoss()
     
     # Setup the optimizer to update the model parameters
-    optimizer_ft = optim.Adam(model_ft.parameters(), lr=3e-4)
+    optimizer_ft = optim.Adam(model_ft.parameters(), lr=3e-3)
     
     
     # Decay LR by a factor of 0.5 every 2 epochs
