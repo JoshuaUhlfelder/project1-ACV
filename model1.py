@@ -298,7 +298,7 @@ if __name__ == "__main__":
     image_datasets = {x: MyDataset(data_dir, metadata, data_transforms[x], sorted(list(splits[x]))) for x in ['train','val','test']}
     
     
-    dataloaders = {x: torch.utils.data.DataLoader(image_datasets[x], batch_size=16,
+    dataloaders = {x: torch.utils.data.DataLoader(image_datasets[x], batch_size=8,
                                                  shuffle=True, num_workers=0, collate_fn=collate_fn)
                   for x in ['train', 'val']}
     
@@ -327,7 +327,7 @@ if __name__ == "__main__":
 
     
     # Load a pretrained model and reset final fully connected layer for this particular classification problem.
-    model_ft = models.resnet34(pretrained=True)
+    model_ft = models.resnet18(pretrained=True)
     
     for param in model_ft.parameters():
         param.requires_grad = False
@@ -346,7 +346,7 @@ if __name__ == "__main__":
     criterion = nn.CrossEntropyLoss()
     
     # Setup the optimizer to update the model parameters
-    optimizer_ft = optim.Adam(model_ft.parameters(), lr=3e-3)
+    optimizer_ft = optim.Adam(model_ft.parameters(), lr=3e-4)
     
     
     # Decay LR by a factor of 0.5 every 2 epochs
