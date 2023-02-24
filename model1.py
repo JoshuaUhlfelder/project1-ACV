@@ -327,10 +327,7 @@ if __name__ == "__main__":
 
     
     # Load a pretrained model and reset final fully connected layer for this particular classification problem.
-    model_ft = models.resnet18(pretrained=True)
-    
-    for param in model_ft.parameters():
-        param.requires_grad = False
+    model_ft = models.resnet34(pretrained=True)
     
     num_ftrs = model_ft.fc.in_features
     
