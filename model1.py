@@ -328,10 +328,11 @@ if __name__ == "__main__":
     """
     
     # Load a pretrained model and reset final fully connected layer for this particular classification problem.
-    model_ft = models.resnet34(pretrained=True)
     
-    for param in model_ft.parameters():
-        param.requires_grad = False
+    model_ft = models.resnet34(weights="IMAGENET1K_V1")
+    
+    #for param in model_ft.parameters():
+    #    param.requires_grad = False
     
     num_ftrs = model_ft.fc.in_features
     
@@ -351,7 +352,7 @@ if __name__ == "__main__":
     
     
     # Decay LR by a factor of 0.2 every 3 epochs
-    exp_lr_scheduler = lr_scheduler.StepLR(optimizer_ft, step_size=3, gamma=0.2)
+    exp_lr_scheduler = lr_scheduler.StepLR(optimizer_ft, step_size=2, gamma=0.2)
     
     
     
