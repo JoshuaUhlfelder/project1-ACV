@@ -295,9 +295,10 @@ if __name__ == "__main__":
     splits = train_val_test_split(metadata)
     
     #create datasets
+    print("Setting up datasets")
     image_datasets = {x: MyDataset(data_dir, metadata, data_transforms[x], sorted(list(splits[x]))) for x in ['train','val','test']}
     
-    
+    print("Setting up dataloaders")
     dataloaders = {x: torch.utils.data.DataLoader(image_datasets[x], batch_size=8,
                                                  shuffle=True, num_workers=0, collate_fn=collate_fn)
                   for x in ['train', 'val']}
@@ -313,7 +314,7 @@ if __name__ == "__main__":
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     print(device)
 
-        
+    """   
     # Get a batch of training data
     inputs, classes = next(iter(dataloaders['train']))
     print(inputs.shape)
@@ -324,10 +325,13 @@ if __name__ == "__main__":
     print(out.shape)
     
     imshow(out, title=[class_names[x] for x in classes])
-
+    """
     
     # Load a pretrained model and reset final fully connected layer for this particular classification problem.
     model_ft = models.resnet34(pretrained=True)
+    
+    for param in model_ft.parameters():
+        param.requires_grad = False
     
     num_ftrs = model_ft.fc.in_features
     
@@ -346,14 +350,14 @@ if __name__ == "__main__":
     optimizer_ft = optim.Adam(model_ft.parameters(), lr=3e-4)
     
     
-    # Decay LR by a factor of 0.5 every 2 epochs
-    exp_lr_scheduler = lr_scheduler.StepLR(optimizer_ft, step_size=2, gamma=0.5)
+    # Decay LR by a factor of 0.2 every 3 epochs
+    exp_lr_scheduler = lr_scheduler.StepLR(optimizer_ft, step_size=3, gamma=0.2)
     
     
     
     # Train and evaluate.  
     model_ft = train_model(model_ft, criterion, optimizer_ft, exp_lr_scheduler,
-                           num_epochs=10)
+                           num_epochs=5)
     
     
     
