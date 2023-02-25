@@ -329,7 +329,7 @@ if __name__ == "__main__":
     
     # Load a pretrained model and reset final fully connected layer for this particular classification problem.
     
-    model_ft = models.resnet34(weights="IMAGENET1K_V1")
+    model_ft = models.resnet50(weights="IMAGENET1K_V1")
     
     #for param in model_ft.parameters():
     #    param.requires_grad = False
@@ -348,11 +348,11 @@ if __name__ == "__main__":
     criterion = nn.CrossEntropyLoss()
     
     # Setup the optimizer to update the model parameters
-    optimizer_ft = optim.Adam(model_ft.parameters(), lr=3e-4)
+    optimizer_ft = optim.Adam(model_ft.parameters(), lr=3e-3)
     
     
     # Decay LR by a factor of 0.2 every 3 epochs
-    exp_lr_scheduler = lr_scheduler.StepLR(optimizer_ft, step_size=2, gamma=0.2)
+    exp_lr_scheduler = lr_scheduler.StepLR(optimizer_ft, step_size=2, gamma=0.1)
     
     
     
