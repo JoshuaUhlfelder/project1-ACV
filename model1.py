@@ -350,7 +350,7 @@ if __name__ == "__main__":
     
     # Setup the optimizer to update the model parameters
     
-    optimizer_ft = optim.Adam(model_ft.parameters(), lr=0.0001)
+    optimizer_ft = optim.Adam(model_ft.parameters(), lr=0.00005)
     
     
     # Decay LR by a factor of 0.2 every 3 epochs
@@ -363,10 +363,13 @@ if __name__ == "__main__":
     
     # Train and evaluate.  
     model_ft = train_model(model_ft, criterion, optimizer_ft, scheduler,
-                           num_epochs=15)
+                           num_epochs=1)
     
     
     
     visualize_model(model_ft)
+    
+    torch.save(model_ft.state_dict(), '../final_model')
+    
     
     
