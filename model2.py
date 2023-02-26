@@ -18,6 +18,7 @@ import copy
 from PIL import Image
 import csv
 from sklearn.model_selection import train_test_split
+from datasets import Dataset
 #from tqdm import tqdm
 
 from transformers import (
@@ -113,6 +114,7 @@ class MyDataset(torch.utils.data.Dataset):
         return image_files, labels, info
     
     def __getitem__(self, idx):  
+        print('TYR')
         # Retrieve an image from the list, load it, transform it, 
         # and return it along with its label
         #Bad data returned as None
@@ -127,11 +129,19 @@ class MyDataset(torch.utils.data.Dataset):
             # Apply the image transform
             image = self.image_transform(image)
             
-            return image, label
+            return image, label#, info
         except Exception as exc:  # <--- i know this isn't the best exception handling
             return None
 
-
+def process(batch):
+    # Filter failed images first
+    #batch = list(filter(lambda x: x is not None, batch))
+    
+    # Now collate into mini-batches
+    return {
+        "pixel_values": torch.stack([x[0] for x in batch]),
+        "labels": torch.tensor([x[1] for x in batch]),
+    }
 
 def collate_fn(batch):
     # Filter failed images first
@@ -223,8 +233,6 @@ if __name__ == "__main__":
     print("Setting up datasets")
     image_datasets = {x: MyDataset(data_dir, metadata, data_transforms[x], sorted(list(splits[x]))) for x in ['train','val','test']}
     
-
-    print(image_datasets['train'][0][0].shape)
     
     metric = evaluate.load("accuracy")
     def compute_metrics(p):
@@ -248,6 +256,79 @@ if __name__ == "__main__":
     model_name_or_path = 'google/vit-base-patch16-224-in21k'
     
     image_processor = AutoImageProcessor.from_pretrained("google/vit-base-patch16-224")
+    
+    print('HERE')
+    
+    """
+    processed_data = {}
+    for i in ['train', 'val', 'test']:
+        print(i)
+        data_list = []
+        for j in range(len(image_datasets[i])):
+            print(j)
+            data_pt = {}
+            data_pt['pixel_values'] = image_processor(image_datasets['train'][j][0], return_tensors='pt')['pixel_values']
+            image_processor(image_datasets['train'][j][0], return_tensors='pt')
+            data_pt['labels'] = image_datasets['train'][j][1]
+            data_list += [data_pt]
+        processed_data[i] = data_list
+        """
+    
+    print('hH')
+    
+    
+    def gen():
+        for j in range(len(image_datasets['train'])):
+            if (j%10 == 0):
+                print(j)
+            yield {"image": image_datasets['train'][j][0], "label": image_datasets['train'][j][1], "info": image_datasets['train'][j][2]}
+
+    def val_gen():
+        for j in range(len(image_datasets['val'])):
+            if (j%10 == 0):
+                print(j)
+            yield {"image": image_datasets['val'][j][0], "label": image_datasets['val'][j][1], "info": image_datasets['val'][j][2]}
+
+    def test_gen():
+        for j in range(len(image_datasets['test'])):
+            if (j%10 == 0):
+                print(j)
+            yield {"image": image_datasets['test'][j][0], "label": image_datasets['test'][j][1], "info": image_datasets['test'][j][2]}
+
+
+    train_ds = Dataset.from_generator(gen)
+    val_ds = Dataset.from_generator(val_gen)
+    test_ds = Dataset.from_generator(test_gen)
+
+    test_dataset.save_to_disk("./train_data.hf")
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    ds = Dataset.from_dict(image_datasets['train'])
+        
+        
+    def transform(example_batch):
+        # Take a list of PIL images and turn them to pixel values
+        inputs = image_processor([x for x in example_batch[0]], return_tensors='pt')
+    
+        # Don't forget to include the labels!
+        inputs['labels'] = example_batch[1]
+        return inputs
+
+    prepared_ds = image_datasets.with_transform(transform)
+    
+    print('HERE2')
+    
     model = ViTForImageClassification.from_pretrained(
         model_name_or_path,
         num_labels=len(class_names),
