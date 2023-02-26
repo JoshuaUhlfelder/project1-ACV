@@ -168,6 +168,7 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=10):
     for epoch in range(num_epochs):
         print(f'Epoch {epoch}/{num_epochs - 1}')
         print('-' * 10)
+        print(scheduler.get_lr())
 
         # Each epoch has a training and validation phase
         for phase in ['train', 'val']:
@@ -299,7 +300,7 @@ if __name__ == "__main__":
     image_datasets = {x: MyDataset(data_dir, metadata, data_transforms[x], sorted(list(splits[x]))) for x in ['train','val','test']}
     
     print("Setting up dataloaders")
-    dataloaders = {x: torch.utils.data.DataLoader(image_datasets[x], batch_size=8,
+    dataloaders = {x: torch.utils.data.DataLoader(image_datasets[x], batch_size=4,
                                                  shuffle=True, num_workers=0, collate_fn=collate_fn)
                   for x in ['train', 'val']}
     
@@ -329,7 +330,7 @@ if __name__ == "__main__":
     
     # Load a pretrained model and reset final fully connected layer for this particular classification problem.
     
-    model_ft = models.resnet50(weights="IMAGENET1K_V1")
+    model_ft = models.resnet34(weights="IMAGENET1K_V1")
     
     #for param in model_ft.parameters():
     #    param.requires_grad = False
@@ -348,17 +349,21 @@ if __name__ == "__main__":
     criterion = nn.CrossEntropyLoss()
     
     # Setup the optimizer to update the model parameters
-    optimizer_ft = optim.Adam(model_ft.parameters(), lr=3e-3)
+    
+    optimizer_ft = optim.Adam(model_ft.parameters(), lr=0.002)
     
     
     # Decay LR by a factor of 0.2 every 3 epochs
-    exp_lr_scheduler = lr_scheduler.StepLR(optimizer_ft, step_size=2, gamma=0.1)
+    scheduler1 = lr_scheduler.LinearLR(optimizer_ft, start_factor=0.05, total_iters=3)
+    scheduler2 = lr_scheduler.ExponentialLR(optimizer_ft, gamma=0.5)
+    scheduler = lr_scheduler.SequentialLR(optimizer_ft, 
+                                          schedulers=[scheduler1, scheduler2], milestones=[3])
     
     
     
     # Train and evaluate.  
-    model_ft = train_model(model_ft, criterion, optimizer_ft, exp_lr_scheduler,
-                           num_epochs=5)
+    model_ft = train_model(model_ft, criterion, optimizer_ft, scheduler,
+                           num_epochs=7)
     
     
     
