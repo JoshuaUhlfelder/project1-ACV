@@ -22,10 +22,11 @@ from sklearn.model_selection import train_test_split
 
 from transformers import (
     AutoImageProcessor, 
-    #ViTForImageClassification, 
+    ViTForImageClassification, 
     SwinForImageClassification,
     TrainingArguments, 
     Trainer,
+    ViTFeatureExtractor,
 )
 import evaluate
 
@@ -137,7 +138,7 @@ def collate_fn(batch):
     # Now collate into mini-batches
     return {
         "pixel_values": torch.stack([x[0] for x in batch]),
-        "labels": torch.LongTensor([x[1] for x in batch]),
+        "labels": torch.tensor([x[1] for x in batch]),
     }
 
 
@@ -220,29 +221,86 @@ if __name__ == "__main__":
     print("Setting up datasets")
     image_datasets = {x: MyDataset(data_dir, metadata, data_transforms[x], sorted(list(splits[x]))) for x in ['train','val','test']}
     
-    #print("Setting up dataloaders")
-    #dataloaders = {x: torch.utils.data.DataLoader(image_datasets[x], batch_size=8,
-    #                                             shuffle=True, num_workers=0, collate_fn=collate_fn)
-    #              for x in ['train', 'val']}
+
+    print(image_datasets['train'][0][0].shape)
+    
+    
+    def compute_metrics(p):
+        return metric.compute(predictions=np.argmax(p.predictions, axis=1), references=p.label_ids)
+    
+    
+    
+    
+    
+    
+    
+    
     
     
     dataset_sizes = {x: len(image_datasets[x]) for x in ['train', 'val', 'test']}
     class_names = image_datasets['train'].classes
-    num_classes = len(class_names)
     print(dataset_sizes)
     print(class_names)
     
-        
-    # Create a lookup table to go between label name and index
-    id2label = {}
-    label2id = {}
-    for idx, label in enumerate(class_names):
-        id2label[str(idx)] = label
-        label2id[label] = str(idx)
+    
+    model_name_or_path = 'google/vit-base-patch16-224-in21k'
+    feature_extractor = ViTFeatureExtractor.from_pretrained(model_name_or_path)
+    
+    model = ViTForImageClassification.from_pretrained(
+        model_name_or_path,
+        num_labels=len(class_names),
+        id2label={str(i): c for i, c in enumerate(class_names)},
+        label2id={c: str(i) for i, c in enumerate(class_names)}
+    )
     
     
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     print(device)
+    
+    
+    
+    training_args = TrainingArguments(
+        output_dir="../final_model_vit",
+        per_device_train_batch_size=16,
+        evaluation_strategy="steps",
+        num_train_epochs=4,
+        fp16=True,
+        save_steps=100,
+        eval_steps=100,
+        logging_steps=10,
+        learning_rate=2e-4,
+        save_total_limit=2,
+        remove_unused_columns=False,
+        push_to_hub=False,
+        report_to='tensorboard',
+        load_best_model_at_end=True,
+    )
+    
+    
+    trainer = Trainer(
+        model=model,
+        args=training_args,
+        data_collator=collate_fn,
+        compute_metrics=compute_metrics,
+        train_dataset=image_datasets["train"],
+        eval_dataset=image_datasets["val"],
+        tokenizer=feature_extractor,
+    )
+    
+    train_results = trainer.train()
+    trainer.save_model()
+    trainer.log_metrics("train", train_results.metrics)
+    trainer.save_metrics("train", train_results.metrics)
+    trainer.save_state()
+    
+    
+    metrics = trainer.evaluate(image_datasets['val'])
+    
+    """
+    trainer.log_metrics("eval", metrics)
+    trainer.save_metrics("eval", metrics)
+    """
+    
 
     """   
     # Get a batch of training data
@@ -256,7 +314,7 @@ if __name__ == "__main__":
     
     imshow(out, title=[class_names[x] for x in classes])
     """
-    
+    """
     # Load a pretrained model and reset final fully connected layer for this particular classification problem.
     
     image_processor = AutoImageProcessor.from_pretrained("microsoft/swin-tiny-patch4-window7-224")
@@ -318,9 +376,6 @@ if __name__ == "__main__":
         
     metric = evaluate.load("accuracy")
     
-    print('DEF\n\n')
-    def compute_metrics(p):
-        return metric.compute(predictions=np.argmax(p.predictions, axis=1), references=p.label_ids)
         
     print("TRAINING\n\n")
     
@@ -349,4 +404,4 @@ if __name__ == "__main__":
     #Evaluate on test set
     #metrics = trainer.evaluate(image_datasets['test'])
     #trainer.log_metrics("eval", metrics)
-    
+    """
