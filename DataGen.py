@@ -18,7 +18,7 @@ import copy
 from PIL import Image
 import csv
 from sklearn.model_selection import train_test_split
-from datasets import Dataset
+from datasets import Dataset, Image as im
 #from tqdm import tqdm
 
 from transformers import (
@@ -143,6 +143,7 @@ class GenDataSet():
         try:
             # Try to open the image file and convert it to RGB.
             image = Image.open(self.image_files[idx]).convert('RGB')
+            image = feature.encode_example(image)
             label = self.labels[idx]
             lesion = self.lesion[idx]
             dx_type = self.dx_type[idx]
@@ -150,57 +151,68 @@ class GenDataSet():
             sex = self.sex[idx]
             localization = self.localization[idx]
             
-            return image, label, lesion, dx_type, age, sex, localization
+            return {'image':image, 'label':label, 'lesion':lesion, 'dx_type':dx_type, 'age':age, 'sex':sex, 'localization':localization}
         except Exception as exc:  # <--- i know this isn't the best exception handling
             return None
 
 
 image_datasets = {x: GenDataSet(data_dir, metadata, sorted(list(splits[x]))) for x in ['train','val','test']}
 
+feature = im()
+
 
 
 
 def train_gen():
-    for j in range(len(image_datasets['train'])):
-        if (j%10 == 0):
-            print(j)
-        yield {"image": image_datasets['train'][j][0], 
-               "label": image_datasets['train'][j][1],
-               "lesion": image_datasets['train'][j][2],
-               "dx_type": image_datasets['train'][j][3],
-               "age": image_datasets['train'][j][4],
-               "sex": image_datasets['train'][j][5],
-               "localization": image_datasets['train'][j][6]}
+    yield {"image": image_datasets['train'][0]["image"], 
+           "label": image_datasets['train'][0]["label"],
+            "lesion": image_datasets['train'][0]["lesion"],
+            "dx_type": image_datasets['train'][0]["dx_type"],
+            "age": image_datasets['train'][0]["age"],
+            "sex": image_datasets['train'][0]["sex"],
+            "localization": image_datasets['train'][0]["localization"]}
 
 def val_gen():
-    for j in range(len(image_datasets['val'])):
-        if (j%10 == 0):
-            print(j)
-        yield {"image": image_datasets['val'][j][0], 
-               "label": image_datasets['val'][j][1],
-               "lesion": image_datasets['val'][j][2],
-               "dx_type": image_datasets['val'][j][3],
-               "age": image_datasets['val'][j][4],
-               "sex": image_datasets['val'][j][5],
-               "localization": image_datasets['val'][j][6]}
+    yield {"image": image_datasets['val'][0]["image"], 
+           "label": image_datasets['val'][0]["label"],
+            "lesion": image_datasets['val'][0]["lesion"],
+            "dx_type": image_datasets['val'][0]["dx_type"],
+            "age": image_datasets['val'][0]["age"],
+            "sex": image_datasets['val'][0]["sex"],
+            "localization": image_datasets['val'][0]["localization"]}
 def test_gen():
-    for j in range(len(image_datasets['test'])):
-        if (j%10 == 0):
-            print(j)
-        yield {"image": image_datasets['test'][j][0], 
-               "label": image_datasets['test'][j][1],
-               "lesion": image_datasets['test'][j][2],
-               "dx_type": image_datasets['test'][j][3],
-               "age": image_datasets['test'][j][4],
-               "sex": image_datasets['test'][j][5],
-               "localization": image_datasets['test'][j][6]}
+    yield {"image": image_datasets['test'][0]["image"], 
+           "label": image_datasets['test'][0]["label"],
+            "lesion": image_datasets['test'][0]["lesion"],
+            "dx_type": image_datasets['test'][0]["dx_type"],
+            "age": image_datasets['test'][0]["age"],
+            "sex": image_datasets['test'][0]["sex"],
+            "localization": image_datasets['test'][0]["localization"]}
+
 
 train_ds = Dataset.from_generator(train_gen)
-val_ds = Dataset.from_generator(val_gen)
-test_ds = Dataset.from_generator(test_gen)
-
+for j in range(1,len(image_datasets['train'])):
+    if (j%10 == 0):
+            print(j)
+    train_ds.add_item(image_datasets['train'][j])
 train_ds.save_to_disk("../train_data.hf")
-val_ds.save_to_disk("../val_data.hf")
-test_ds.save_to_disk("../test_data.hf")
 
+val_ds = Dataset.from_generator(val_gen)
+for j in range(1,len(image_datasets['val'])):
+    if (j%10 == 0):
+            print(j)
+    val_ds.add_item(image_datasets['val'][j])
+val_ds.save_to_disk("../val_data.hf")
+    
+test_ds = Dataset.from_generator(test_gen)
+for j in range(1,len(image_datasets['test'])):
+    if (j%10 == 0):
+            print(j)
+    test_gen.add_item(image_datasets['test'][j])
+
+
+
+
+
+test_ds.save_to_disk("../test_data.hf")
 
