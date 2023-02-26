@@ -401,10 +401,12 @@ if __name__ == "__main__":
     print("Set learning rate to:", training_args.learning_rate)
         
     metric = evaluate.load("accuracy")
+    
+    print('DEF\n\n')
     def compute_metrics(p):
         return metric.compute(predictions=np.argmax(p.predictions, axis=1), references=p.label_ids)
         
-    print("TRAINING")
+    print("TRAINING\n\n")
     trainer = Trainer(
         model=model,
         args=training_args,
