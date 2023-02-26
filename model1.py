@@ -300,7 +300,7 @@ if __name__ == "__main__":
     image_datasets = {x: MyDataset(data_dir, metadata, data_transforms[x], sorted(list(splits[x]))) for x in ['train','val','test']}
     
     print("Setting up dataloaders")
-    dataloaders = {x: torch.utils.data.DataLoader(image_datasets[x], batch_size=4,
+    dataloaders = {x: torch.utils.data.DataLoader(image_datasets[x], batch_size=8,
                                                  shuffle=True, num_workers=0, collate_fn=collate_fn)
                   for x in ['train', 'val']}
     
@@ -330,7 +330,7 @@ if __name__ == "__main__":
     
     # Load a pretrained model and reset final fully connected layer for this particular classification problem.
     
-    model_ft = models.resnet34(weights="IMAGENET1K_V1")
+    model_ft = models.resnet50(weights="IMAGENET1K_V1")
     
     #for param in model_ft.parameters():
     #    param.requires_grad = False
@@ -354,7 +354,7 @@ if __name__ == "__main__":
     
     
     # Decay LR by a factor of 0.2 every 3 epochs
-    scheduler1 = lr_scheduler.LinearLR(optimizer_ft, start_factor=0.01, total_iters=3)
+    scheduler1 = lr_scheduler.LinearLR(optimizer_ft, start_factor=0.01, total_iters=2)
     scheduler2 = lr_scheduler.ExponentialLR(optimizer_ft, gamma=0.5)
     scheduler = lr_scheduler.SequentialLR(optimizer_ft, 
                                           schedulers=[scheduler1, scheduler2], milestones=[3])
