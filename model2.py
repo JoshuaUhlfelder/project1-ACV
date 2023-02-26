@@ -33,6 +33,8 @@ import evaluate
 cudnn.benchmark = True
 plt.ion()
 
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
+
 
 #Dataset creation for train, val, test
 class MyDataset(torch.utils.data.Dataset):
@@ -224,7 +226,7 @@ if __name__ == "__main__":
 
     print(image_datasets['train'][0][0].shape)
     
-    
+    metric = evaluate.load("accuracy")
     def compute_metrics(p):
         return metric.compute(predictions=np.argmax(p.predictions, axis=1), references=p.label_ids)
     
@@ -274,6 +276,7 @@ if __name__ == "__main__":
         push_to_hub=False,
         report_to='tensorboard',
         load_best_model_at_end=True,
+        dataloader_num_workers=0,
     )
     
     
