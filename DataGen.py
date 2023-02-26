@@ -19,7 +19,7 @@ from PIL import Image
 import csv
 from sklearn.model_selection import train_test_split
 from datasets import Dataset, Image as im
-#from tqdm import tqdm
+from tqdm import tqdm
 
 from transformers import (
     AutoImageProcessor, 
@@ -191,9 +191,7 @@ def test_gen():
 
 
 train_ds = Dataset.from_generator(train_gen)
-for j in range(1,len(image_datasets['train'])):
-    if (j%10 == 0):
-            print(j)
+for j in tqdm(range(1,len(image_datasets['train']))):
     train_ds.add_item(image_datasets['train'][j])
 train_ds.save_to_disk("../train_data.hf")
 
