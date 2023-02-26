@@ -350,11 +350,11 @@ if __name__ == "__main__":
     
     # Setup the optimizer to update the model parameters
     
-    optimizer_ft = optim.Adam(model_ft.parameters(), lr=0.002)
+    optimizer_ft = optim.Adam(model_ft.parameters(), lr=0.0001)
     
     
     # Decay LR by a factor of 0.2 every 3 epochs
-    scheduler1 = lr_scheduler.LinearLR(optimizer_ft, start_factor=0.05, total_iters=3)
+    scheduler1 = lr_scheduler.LinearLR(optimizer_ft, start_factor=0.01, total_iters=3)
     scheduler2 = lr_scheduler.ExponentialLR(optimizer_ft, gamma=0.5)
     scheduler = lr_scheduler.SequentialLR(optimizer_ft, 
                                           schedulers=[scheduler1, scheduler2], milestones=[3])
