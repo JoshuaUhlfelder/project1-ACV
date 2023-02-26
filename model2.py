@@ -18,20 +18,15 @@ import copy
 from PIL import Image
 import csv
 from sklearn.model_selection import train_test_split
-from tqdm import tqdm
+#from tqdm import tqdm
 
 from transformers import (
     AutoImageProcessor, 
-    ViTForImageClassification, 
+    #ViTForImageClassification, 
     SwinForImageClassification,
     TrainingArguments, 
     Trainer,
-    ResNetModel,
-    AutoTokenizer, 
-    BertModel,
-    BertPreTrainedModel,
 )
-from transformers.modeling_outputs import SequenceClassifierOutput
 import evaluate
 
 cudnn.benchmark = True
@@ -160,85 +155,6 @@ def train_val_test_split(metadata):
     return {'train': train_les, 'val': val_les, 'test': test_les}
 
 
-def imshow(inp, title=None):
-    """Imshow for Tensor."""
-    inp = inp.numpy().transpose((1, 2, 0))
-    mean = np.array([0.485, 0.456, 0.406])
-    std = np.array([0.229, 0.224, 0.225])
-    inp = std * inp + mean
-    inp = np.clip(inp, 0, 1)
-    plt.imshow(inp)
-    if title is not None:
-        plt.title(title)
-    plt.pause(0.001)  # pause a bit so that plots are updated
-
-
-def train_model(model, criterion, optimizer, scheduler, num_epochs=10):
-    since = time.time()
-
-    best_model_wts = copy.deepcopy(model.state_dict())
-    best_acc = 0.0
-
-    for epoch in range(num_epochs):
-        print(f'Epoch {epoch}/{num_epochs - 1}')
-        print('-' * 10)
-        print(scheduler.get_last_lr())
-
-        # Each epoch has a training and validation phase
-        for phase in ['train', 'val']:
-            if phase == 'train':
-                model.train()  # Set model to training mode
-            else:
-                model.eval()   # Set model to evaluate mode
-
-            running_loss = 0.0
-            running_corrects = 0
-
-            # Iterate over data.
-            for inputs, labels in tqdm(dataloaders[phase]):
-                inputs = inputs.to(device)
-                labels = labels.to(device)
-
-                # zero the parameter gradients
-                optimizer.zero_grad()
-
-                # forward
-                # track history if only in train
-                with torch.set_grad_enabled(phase == 'train'):
-                    outputs = model(inputs)
-                    _, preds = torch.max(outputs, 1)
-                    loss = criterion(outputs, labels)
-
-                    # backward + optimize only if in training phase
-                    if phase == 'train':
-                        loss.backward()
-                        optimizer.step()
-
-                # statistics
-                running_loss += loss.item() * inputs.size(0)
-                running_corrects += torch.sum(preds == labels.data)
-            if phase == 'train':
-                scheduler.step()
-
-            epoch_loss = running_loss / dataset_sizes[phase]
-            epoch_acc = running_corrects.double() / dataset_sizes[phase]
-
-            print(f'{phase} Loss: {epoch_loss:.4f} Acc: {epoch_acc:.4f}')
-
-            # deep copy the model
-            if phase == 'val' and epoch_acc > best_acc:
-                best_acc = epoch_acc
-                best_model_wts = copy.deepcopy(model.state_dict())
-
-        print()
-
-    time_elapsed = time.time() - since
-    print(f'Training complete in {time_elapsed // 60:.0f}m {time_elapsed % 60:.0f}s')
-    print(f'Best val Acc: {best_acc:4f}')
-
-    # load best model weights
-    model.load_state_dict(best_model_wts)
-    return model
 
 
 # A useful function to see the size and # of params of a model
@@ -352,8 +268,7 @@ if __name__ == "__main__":
         ignore_mismatched_sizes=True,
     )
     
-    #Print out model info
-    print(model.classifier)
+    #Print model info
     print("Num labels:", model.num_labels)
     print("\nModel config:", model.config)
     num_params, size_all_mb = get_model_info(model)
@@ -376,6 +291,7 @@ if __name__ == "__main__":
     output_dir = "../model2_final"
 
     training_args = TrainingArguments(
+        disable_tqdm=False,
         output_dir=output_dir,
         per_device_train_batch_size=16,
         per_device_eval_batch_size=16,
@@ -407,6 +323,11 @@ if __name__ == "__main__":
         return metric.compute(predictions=np.argmax(p.predictions, axis=1), references=p.label_ids)
         
     print("TRAINING\n\n")
+    
+    
+    
+    
+    
     trainer = Trainer(
         model=model,
         args=training_args,
