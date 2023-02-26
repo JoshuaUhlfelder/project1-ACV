@@ -330,7 +330,8 @@ if __name__ == "__main__":
     
     # Load a pretrained model and reset final fully connected layer for this particular classification problem.
     
-    model_ft = models.resnet50(weights="IMAGENET1K_V1")
+    #model_ft = models.resnet50(weights="IMAGENET1K_V1")
+    model_ft = models.vgg19_bn(weights="IMAGENET1K_V1")
     
     #for param in model_ft.parameters():
     #    param.requires_grad = False
