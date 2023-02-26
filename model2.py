@@ -246,8 +246,8 @@ if __name__ == "__main__":
     
     
     model_name_or_path = 'google/vit-base-patch16-224-in21k'
-    feature_extractor = ViTFeatureExtractor.from_pretrained(model_name_or_path)
     
+    image_processor = AutoImageProcessor.from_pretrained("google/vit-base-patch16-224")
     model = ViTForImageClassification.from_pretrained(
         model_name_or_path,
         num_labels=len(class_names),
@@ -257,6 +257,10 @@ if __name__ == "__main__":
     
     for p in model.parameters():
         p.requires_grad = False
+        
+    # Turn back on the classifier weights
+    for p in model.classifier.parameters():
+        p.requires_grad=True
     
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(device)
@@ -289,7 +293,7 @@ if __name__ == "__main__":
         compute_metrics=compute_metrics,
         train_dataset=image_datasets['train'],
         eval_dataset=image_datasets['val'],
-        tokenizer=feature_extractor,
+        tokenizer=image_processor,
     )
     
     train_results = trainer.train()
