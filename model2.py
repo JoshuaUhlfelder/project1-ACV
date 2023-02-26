@@ -19,7 +19,9 @@ from PIL import Image
 import csv
 from sklearn.model_selection import train_test_split
 from datasets import Dataset
-#from tqdm import tqdm
+from tqdm import tqdm
+from datasets import load_dataset
+from datasets import load_from_disk
 
 from transformers import (
     AutoImageProcessor, 
@@ -34,114 +36,6 @@ import evaluate
 cudnn.benchmark = True
 plt.ion()
 
-os.environ["TOKENIZERS_PARALLELISM"] = "false"
-
-
-#Dataset creation for train, val, test
-class MyDataset(torch.utils.data.Dataset):
-    """
-    This class needs the directory where all the images are stored,
-    a metadata file, the transform operations for each set,
-    and a list of lesions in each set
-    """
-    def __init__(
-        #Needs directory of images, metadata file, and transformations
-        self,
-        images_dir,
-        metadata,
-        image_transform,
-        lesion_ids,
-    ):
-        self.lesion_ids = lesion_ids
-        self.image_transform = image_transform
-        
-        # Retrieves class names form metadata file
-        self.classes = self.get_class_names(metadata)
-        
-        # Assign a unique label index to each class name
-        self.class_labels = {name: idx for idx, name in enumerate(self.classes)}
-        
-        # Next, let's collect all image files underneath each class name directory 
-        # as a single list of image files.  We need to correspond the class label
-        # to each image.
-        image_files, labels, info = self.get_image_filenames_with_labels(
-            images_dir,
-            self.class_labels,
-            metadata,
-            self.lesion_ids,
-        )
-        
-        # This is a trick to avoid memory leaks over very large datasets.
-        self.image_files = np.array(image_files)
-        self.labels = np.array(labels).astype("int")
-        
-        # How many total images do we need to iterate in this entire dataset?
-        self.num_images = len(self.image_files)
-        
-    def __len__(self):
-        return self.num_images
-        
-    def get_class_names(self, metadata):
-        #Return all classes as list of strings by iterating through metadata
-        class_names = set()
-        with open(metadata, newline='') as csvfile:
-            reader = csv.reader(csvfile, delimiter=',', quotechar='|')
-            next(reader)
-            for row in reader:
-                class_names.add(row[2])
-        
-        return sorted(list(class_names)) #convert set to list and return
-    
-    #The images are organized cleanly, all ending with .jpg, and with uniform naming structure
-    def get_image_filenames_with_labels(self, images_dir, class_labels, metadata, lesion_ids):
-        image_files = []
-        labels = []
-        info = []
-        
-        #Iterate over all lesions in the specific set
-        all_data = pd.read_csv(metadata)
-        for lesion_id in lesion_ids:
-            results = all_data.loc[all_data['lesion_id'] == lesion_id]
-            
-            #For each image of the lesion
-            #add the image name, label, and demographic info to the lists
-            results = results.reset_index()
-            for index, row in results.iterrows():
-                image_files += [images_dir + '/' + (row['image_id'] + '.jpg')]
-                labels += [class_labels[row['dx']]]
-                info += (row['lesion_id'], row['dx_type'], row['age'], 
-                         row['sex'], row['localization'],)
-        return image_files, labels, info
-    
-    def __getitem__(self, idx):  
-        print('TYR')
-        # Retrieve an image from the list, load it, transform it, 
-        # and return it along with its label
-        #Bad data returned as None
-        try:
-            # Try to open the image file and convert it to RGB.
-            image = Image.open(self.image_files[idx]).convert('RGB')
-            label = self.labels[idx]
-            
-            #Will used this in future models
-            #info = self.info[idx]
-            
-            # Apply the image transform
-            image = self.image_transform(image)
-            
-            return image, label#, info
-        except Exception as exc:  # <--- i know this isn't the best exception handling
-            return None
-
-def process(batch):
-    # Filter failed images first
-    #batch = list(filter(lambda x: x is not None, batch))
-    
-    # Now collate into mini-batches
-    return {
-        "pixel_values": torch.stack([x[0] for x in batch]),
-        "labels": torch.tensor([x[1] for x in batch]),
-    }
 
 def collate_fn(batch):
     # Filter failed images first
@@ -152,21 +46,6 @@ def collate_fn(batch):
         "pixel_values": torch.stack([x[0] for x in batch]),
         "labels": torch.tensor([x[1] for x in batch]),
     }
-
-
-# Returns the lesion IDs for each split
-def train_val_test_split(metadata):
-    
-    #Read in metadata and separate lesions (not images) into training, test, and validation groups
-    #Train = 60% of lesions
-    #Val = 20% of lesions
-    #Test = 20% of lesions
-    df = pd.read_csv(metadata)
-    train_les, eval_les = train_test_split(df['lesion_id'].drop_duplicates(), test_size=0.4, random_state=0)
-    val_les, test_les = train_test_split(eval_les, test_size=0.5, random_state=0)
-    
-    return {'train': train_les, 'val': val_les, 'test': test_les}
-
 
 
 
@@ -223,34 +102,25 @@ if __name__ == "__main__":
         
     #Set metadata file and image data directory
     data_dir = '../HAM10000_images'
-    metadata = 'HAM10000_metadata.csv'
 
 
-    #Split lesions into sets
-    splits = train_val_test_split(metadata)
-    
-    #create datasets
-    print("Setting up datasets")
-    image_datasets = {x: MyDataset(data_dir, metadata, data_transforms[x], sorted(list(splits[x]))) for x in ['train','val','test']}
-    
-    
+
+
     metric = evaluate.load("accuracy")
     def compute_metrics(p):
         return metric.compute(predictions=np.argmax(p.predictions, axis=1), references=p.label_ids)
     
     
+    train_ds = load_from_disk("../train_data.hf")
+    val_ds = load_from_disk("../val_data.hf")
+    test_ds = load_from_disk("../test_data.hf")
     
     
+
+    class_names = train_ds.classes
     
-    
-    
-    
-    
-    
-    dataset_sizes = {x: len(image_datasets[x]) for x in ['train', 'val', 'test']}
-    class_names = image_datasets['train'].classes
-    print(dataset_sizes)
     print(class_names)
+    print(len())
     
     
     model_name_or_path = 'google/vit-base-patch16-224-in21k'
