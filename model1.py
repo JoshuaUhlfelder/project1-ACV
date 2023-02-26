@@ -267,21 +267,21 @@ if __name__ == "__main__":
             transforms.RandomHorizontalFlip(),
             transforms.RandomVerticalFlip(),
             transforms.ToTensor(),
-            transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+            #transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
         ]),
         #Resize and crop images for validation
         'val': transforms.Compose([
             transforms.Resize(256),
             transforms.CenterCrop(224),
             transforms.ToTensor(),
-            transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+            #transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
         ]),
         #Resize and crop images for testing (locked away)
         'test': transforms.Compose([
             transforms.Resize(256),
             transforms.CenterCrop(224),
             transforms.ToTensor(),
-            transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+            #transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
         ]),
     }
     
@@ -330,8 +330,8 @@ if __name__ == "__main__":
     
     # Load a pretrained model and reset final fully connected layer for this particular classification problem.
     
-    #model_ft = models.resnet50(weights="IMAGENET1K_V1")
-    model_ft = models.vgg19_bn(weights="IMAGENET1K_V1")
+    model_ft = models.resnet50(weights="IMAGENET1K_V1")
+    #model_ft = models.vgg19_bn(weights="IMAGENET1K_V1")
     
     #for param in model_ft.parameters():
     #    param.requires_grad = False
@@ -364,13 +364,13 @@ if __name__ == "__main__":
     
     # Train and evaluate.  
     model_ft = train_model(model_ft, criterion, optimizer_ft, scheduler,
-                           num_epochs=15)
+                           num_epochs=7)
     
     
     
     visualize_model(model_ft)
     
-    torch.save(model_ft.state_dict(), '../final_model')
+    torch.save(model_ft.state_dict(), '../final_modelResNet_NotNorm')
     
     
     
