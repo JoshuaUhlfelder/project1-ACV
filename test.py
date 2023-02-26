@@ -49,12 +49,14 @@ default_args = {
     "report_to": "none",
 }
 
+print("1")
 from transformers import TrainingArguments, Trainer, logging
-
+print("2")
 logging.set_verbosity_error()
-
+print("3")
 
 training_args = TrainingArguments(per_device_train_batch_size=4, **default_args)
 trainer = Trainer(model=model, args=training_args, train_dataset=ds)
+print("4")
 result = trainer.train()
 print_summary(result)
