@@ -343,9 +343,9 @@ if __name__ == "__main__":
     
     # Load a pretrained model and reset final fully connected layer for this particular classification problem.
     
-    image_processor = AutoImageProcessor.from_pretrained("google/vit-base-patch16-224")
-    model = ViTForImageClassification.from_pretrained(
-        "google/vit-base-patch16-224",
+    image_processor = AutoImageProcessor.from_pretrained("microsoft/swin-tiny-patch4-window7-224")
+    model = SwinForImageClassification.from_pretrained(
+        "microsoft/swin-tiny-patch4-window7-224",
         num_labels=num_classes,
         id2label=id2label,
         label2id=label2id,
@@ -378,7 +378,7 @@ if __name__ == "__main__":
     training_args = TrainingArguments(
         output_dir=output_dir,
         per_device_train_batch_size=16,
-        per_device_eval_batch_size=32,
+        per_device_eval_batch_size=16,
         evaluation_strategy="epoch",
         save_strategy="epoch",
         num_train_epochs=1,
@@ -404,6 +404,7 @@ if __name__ == "__main__":
     def compute_metrics(p):
         return metric.compute(predictions=np.argmax(p.predictions, axis=1), references=p.label_ids)
         
+    print("TRAINING")
     trainer = Trainer(
         model=model,
         args=training_args,
