@@ -204,10 +204,6 @@ val_ds.save_to_disk("../val_data.hf")
 """
 test_ds = Dataset.from_generator(test_gen)
 for j in tqdm(range(1,len(image_datasets['test']))):
-    if (j%10 == 0):
-            print(j)
     test_ds.add_item(image_datasets['test'][j])
-
-
 test_ds.save_to_disk("../test_data.hf")
 
