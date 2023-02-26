@@ -168,7 +168,7 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=10):
     for epoch in range(num_epochs):
         print(f'Epoch {epoch}/{num_epochs - 1}')
         print('-' * 10)
-        print(scheduler.get_lr())
+        print(scheduler.get_last_lr())
 
         # Each epoch has a training and validation phase
         for phase in ['train', 'val']:
