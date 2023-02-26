@@ -137,7 +137,7 @@ class MyDataset(torch.utils.data.Dataset):
 
 def collate_fn(batch):
     # Filter failed images first
-    batch = list(filter(lambda x: x is not None, batch))
+    #batch = list(filter(lambda x: x is not None, batch))
     
     # Now collate into mini-batches
     return {
@@ -304,10 +304,10 @@ if __name__ == "__main__":
     print("Setting up datasets")
     image_datasets = {x: MyDataset(data_dir, metadata, data_transforms[x], sorted(list(splits[x]))) for x in ['train','val','test']}
     
-    print("Setting up dataloaders")
-    dataloaders = {x: torch.utils.data.DataLoader(image_datasets[x], batch_size=8,
-                                                 shuffle=True, num_workers=0, collate_fn=collate_fn)
-                  for x in ['train', 'val']}
+    #print("Setting up dataloaders")
+    #dataloaders = {x: torch.utils.data.DataLoader(image_datasets[x], batch_size=8,
+    #                                             shuffle=True, num_workers=0, collate_fn=collate_fn)
+    #              for x in ['train', 'val']}
     
     
     dataset_sizes = {x: len(image_datasets[x]) for x in ['train', 'val', 'test']}
@@ -350,7 +350,7 @@ if __name__ == "__main__":
         id2label=id2label,
         label2id=label2id,
         ignore_mismatched_sizes=True,
-)
+    )
     
     #Print out model info
     print(model.classifier)
@@ -381,7 +381,7 @@ if __name__ == "__main__":
         per_device_eval_batch_size=32,
         evaluation_strategy="epoch",
         save_strategy="epoch",
-        num_train_epochs=3,
+        num_train_epochs=1,
         lr_scheduler_type="cosine",
         logging_steps=10,
         save_total_limit=2,
@@ -389,7 +389,7 @@ if __name__ == "__main__":
         push_to_hub=False,
         load_best_model_at_end=True,
         dataloader_num_workers=0,  
-    #     gradient_accumulation_steps=8,
+        gradient_accumulation_steps=8,
     )
     
     base_learning_rate = 1e-3
