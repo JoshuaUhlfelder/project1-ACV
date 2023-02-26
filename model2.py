@@ -255,6 +255,8 @@ if __name__ == "__main__":
         label2id={c: str(i) for i, c in enumerate(class_names)}
     )
     
+    for p in model.parameters():
+        p.requires_grad = False
     
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(device)
@@ -285,8 +287,8 @@ if __name__ == "__main__":
         args=training_args,
         data_collator=collate_fn,
         compute_metrics=compute_metrics,
-        train_dataset=image_datasets["train"],
-        eval_dataset=image_datasets["val"],
+        train_dataset=image_datasets['train'],
+        eval_dataset=image_datasets['val'],
         tokenizer=feature_extractor,
     )
     
