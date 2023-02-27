@@ -196,7 +196,6 @@ for j in tqdm(range(1,len(image_datasets['train']))):
     train_ds= train_ds.add_item(image_datasets['train'][j])
 
 train_ds.save_to_disk("../train_data.hf")
-
 print("Compiling Validation")
 val_ds = Dataset.from_generator(val_gen)
 for j in tqdm(range(1,len(image_datasets['val']))):
