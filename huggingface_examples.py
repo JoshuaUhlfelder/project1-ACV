@@ -185,7 +185,7 @@ output_dir = "./finetune_vit"
 
 training_args = TrainingArguments(
     output_dir=output_dir,
-    per_device_train_batch_size=16,
+    per_device_train_batch_size=1,
     per_device_eval_batch_size=32,
     evaluation_strategy="epoch",
     save_strategy="epoch",
