@@ -419,8 +419,8 @@ if __name__ == "__main__":
     trainer = Trainer(
         model=model,
         args=training_args,
-        train_dataset=image_datasets['train'].to(device),
-        eval_dataset=image_datasets['val'].to(device),
+        train_dataset=image_datasets['train'],
+        eval_dataset=image_datasets['val'],
         tokenizer=image_processor,
         compute_metrics=compute_metrics,
         data_collator=collate_fn,
