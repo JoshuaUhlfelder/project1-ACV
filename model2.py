@@ -114,8 +114,7 @@ if __name__ == "__main__":
     """
     
     def transforms(batch):
-        byts = batch['image']['bytes']
-        batch["pixel_values"] = Image.open(io.BytesIO(byts))
+        batch['image'] = batch['image']['bytes']
         return batch
     
     
@@ -129,12 +128,6 @@ if __name__ == "__main__":
     image_processor = AutoImageProcessor.from_pretrained("google/vit-base-patch16-224")
     
     
-    def process_ds(ds):
-        new_column = ["pixel_values"] * len(ds)
-        ds = ds.add_column("pixel_values", new_column)
-    
-    
-    new_column = ["foo"] * 3
     
     
     
