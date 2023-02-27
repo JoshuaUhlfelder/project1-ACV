@@ -112,13 +112,21 @@ if __name__ == "__main__":
     val_ds.set_transform(val_transform)
     test_ds.set_transform(val_transform)
     """
-    
-    def transforms(batch):
+    def transform_bytedata(batch):
         batch['image'] = batch['image']['bytes']
         return batch
     
+    def transform_toimg(batch):
+        batch['pixels'] = Image.open(io.BytesIO(batch['image'])).convert('RGB')
+        return batch
     
-    train_ds = tqdm(train_ds.map(transforms, writer_batch_size=20000))
+
+    
+    train_ds = train_ds.map(transform_bytedata, writer_batch_size=20000)
+    
+    print('HEHE')
+    
+    train_ds = train_ds.map(transform_toimg, writer_batch_size=20000)
     
     
     
