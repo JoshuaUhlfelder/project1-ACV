@@ -189,18 +189,19 @@ def test_gen():
             "sex": image_datasets['test'][0]["sex"],
             "localization": image_datasets['test'][0]["localization"]}
 
+"""
 train_ds = Dataset.from_generator(train_gen)
 for j in tqdm(range(1,len(image_datasets['train']))):
     train_ds= train_ds.add_item(image_datasets['train'][j])
     if(j%100==0):
         print(len(train_ds))
-        
+"""
 
-train_ds.save_to_disk("../train_data.hf")
+#train_ds.save_to_disk("../train_data.hf")
 
 val_ds = Dataset.from_generator(val_gen)
 for j in tqdm(range(1,len(image_datasets['val']))):
-    val_ds.add_item(image_datasets['val'][j])
+    val_ds = val_ds.add_item(image_datasets['val'][j])
     if(j%100==0):
         print(len(val_ds))
     
@@ -208,7 +209,7 @@ val_ds.save_to_disk("../val_data.hf")
 
 test_ds = Dataset.from_generator(test_gen)
 for j in tqdm(range(1,len(image_datasets['test']))):
-    test_ds.add_item(image_datasets['test'][j])
+    test_ds = test_ds.add_item(image_datasets['test'][j])
     
 test_ds.save_to_disk("../test_data.hf")
 
