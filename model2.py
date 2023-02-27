@@ -119,14 +119,14 @@ if __name__ == "__main__":
         return batch
     
     
-    train_ds = tqdm(train_ds.map(transforms, remove_columns=["image"], batched=False))
+    train_ds = tqdm(train_ds.map(transforms, remove_columns=["image"], 
+                                 batched=False, keep_in_memory=True, writer_batch_size=500))
     
     
-    train_ds
+    #train_ds[0:8]['image']
     
     
-    img = train_ds[0]['image']
-    
+    img = train_ds[0]['image']['bytes']
     image = io.BytesIO(img)
     image = Image.open(image)
     
