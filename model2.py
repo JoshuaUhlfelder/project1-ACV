@@ -119,8 +119,8 @@ if __name__ == "__main__":
         return batch
     
     
-    train_ds = tqdm(train_ds.map(transforms, remove_columns=["image"], 
-                                 batched=False, writer_batch_size=10000))
+    train_ds = tqdm(train_ds.map(transforms, 
+                                 batched=False, writer_batch_size=20000))
     
     
     #train_ds[0:8]['image']
