@@ -22,6 +22,7 @@ from datasets import Dataset
 from tqdm import tqdm
 from datasets import load_dataset
 from datasets import load_from_disk
+import io
 
 from transformers import (
     AutoImageProcessor, 
@@ -71,106 +72,69 @@ def get_model_info(model):
 if __name__ == "__main__":
 
     
-
-    #Resize, flip, convert, normalize images for training
-    data_transforms = {
-        'train': transforms.Compose([
-            transforms.RandomResizedCrop(size=224,scale=(0.3, 1.0)),
-            #Flip image vertically and horizontally with prob 0.5
-            transforms.RandomHorizontalFlip(),
-            transforms.RandomVerticalFlip(),
-            transforms.ToTensor(),
-            transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
-        ]),
-        #Resize and crop images for validation
-        'val': transforms.Compose([
-            transforms.Resize(256),
-            transforms.CenterCrop(224),
-            transforms.ToTensor(),
-            transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
-        ]),
-        #Resize and crop images for testing (locked away)
-        'test': transforms.Compose([
-            transforms.Resize(256),
-            transforms.CenterCrop(224),
-            transforms.ToTensor(),
-            transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
-        ]),
-    }
-    
-        
-        
-    #Set metadata file and image data directory
+    #Set image data directory
     data_dir = '../HAM10000_images'
 
-
-
-
-    metric = evaluate.load("accuracy")
-    def compute_metrics(p):
-        return metric.compute(predictions=np.argmax(p.predictions, axis=1), references=p.label_ids)
+    #Resize, flip, convert, normalize images for training
+    """
+    train_transform = transforms.Compose([
+        Image.frombytes(mode, size, data)
+        transforms.RandomResizedCrop(size=224,scale=(0.3, 1.0)),
+        #Flip image vertically and horizontally with prob 0.5
+        transforms.RandomHorizontalFlip(),
+        transforms.RandomVerticalFlip(),
+        transforms.ToTensor(),
+        transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+    ])
     
+    val_transform = transforms.Compose([
+        transforms.Resize(256),
+        transforms.CenterCrop(224),
+        transforms.ToTensor(),
+        transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+    ])
     
+    test_transform = transforms.Compose([
+        transforms.Resize(256),
+        transforms.CenterCrop(224),
+        transforms.ToTensor(),
+        transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+    ])
+    """
+    #Load in all datasets
+    #Can only be used after running DataGen.py
     train_ds = load_from_disk("../train_data.hf")
     val_ds = load_from_disk("../val_data.hf")
     test_ds = load_from_disk("../test_data.hf")
     
+    """
+    train_ds.set_transform(transforms)
+    val_ds.set_transform(val_transform)
+    test_ds.set_transform(val_transform)
+    """
     
-
-    class_names = train_ds.classes
+    def transforms(batch):
+        byts = batch['image']['bytes']
+        batch["pixel_values"] = Image.open(io.BytesIO(byts))
+        return batch
     
-    print(class_names)
-    print(len())
+    
+    train_ds = tqdm(train_ds.map(transforms, remove_columns=["image"], batched=False))
     
     
-    model_name_or_path = 'google/vit-base-patch16-224-in21k'
+    train_ds
+    
+    
+    img = train_ds[0]['image']
+    
+    image = io.BytesIO(img)
+    image = Image.open(image)
+    
+    
+    print(train_ds[0]['image'])
     
     image_processor = AutoImageProcessor.from_pretrained("google/vit-base-patch16-224")
     
-    print('HERE')
-    
-    """
-    processed_data = {}
-    for i in ['train', 'val', 'test']:
-        print(i)
-        data_list = []
-        for j in range(len(image_datasets[i])):
-            print(j)
-            data_pt = {}
-            data_pt['pixel_values'] = image_processor(image_datasets['train'][j][0], return_tensors='pt')['pixel_values']
-            image_processor(image_datasets['train'][j][0], return_tensors='pt')
-            data_pt['labels'] = image_datasets['train'][j][1]
-            data_list += [data_pt]
-        processed_data[i] = data_list
-        """
-    
-    print('hH')
-    
-    
-    def gen():
-        for j in range(len(image_datasets['train'])):
-            if (j%10 == 0):
-                print(j)
-            yield {"image": image_datasets['train'][j][0], "label": image_datasets['train'][j][1], "info": image_datasets['train'][j][2]}
-
-    def val_gen():
-        for j in range(len(image_datasets['val'])):
-            if (j%10 == 0):
-                print(j)
-            yield {"image": image_datasets['val'][j][0], "label": image_datasets['val'][j][1], "info": image_datasets['val'][j][2]}
-
-    def test_gen():
-        for j in range(len(image_datasets['test'])):
-            if (j%10 == 0):
-                print(j)
-            yield {"image": image_datasets['test'][j][0], "label": image_datasets['test'][j][1], "info": image_datasets['test'][j][2]}
-
-
-    train_ds = Dataset.from_generator(gen)
-    val_ds = Dataset.from_generator(val_gen)
-    test_ds = Dataset.from_generator(test_gen)
-
-    test_dataset.save_to_disk("./train_data.hf")
     
     
     
@@ -184,184 +148,6 @@ if __name__ == "__main__":
     
     
     
-    ds = Dataset.from_dict(image_datasets['train'])
-        
-        
-    def transform(example_batch):
-        # Take a list of PIL images and turn them to pixel values
-        inputs = image_processor([x for x in example_batch[0]], return_tensors='pt')
-    
-        # Don't forget to include the labels!
-        inputs['labels'] = example_batch[1]
-        return inputs
-
-    prepared_ds = image_datasets.with_transform(transform)
-    
-    print('HERE2')
-    
-    model = ViTForImageClassification.from_pretrained(
-        model_name_or_path,
-        num_labels=len(class_names),
-        id2label={str(i): c for i, c in enumerate(class_names)},
-        label2id={c: str(i) for i, c in enumerate(class_names)}
-    )
-    
-    for p in model.parameters():
-        p.requires_grad = False
-        
-    # Turn back on the classifier weights
-    for p in model.classifier.parameters():
-        p.requires_grad=True
-    
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    print(device)
-    
-    
-    output_dir = "../model2_final"
-    training_args = TrainingArguments(
-        disable_tqdm=False,
-        output_dir=output_dir,
-        per_device_train_batch_size=16,
-        per_device_eval_batch_size=16,
-        evaluation_strategy="epoch",
-        save_strategy="epoch",
-        num_train_epochs=1,
-        lr_scheduler_type="cosine",
-        logging_steps=10,
-        save_total_limit=2,
-        remove_unused_columns=False,
-        push_to_hub=False,
-        load_best_model_at_end=True,
-        dataloader_num_workers=0,  
-        gradient_accumulation_steps=8,
-    )
-    
-    
-    trainer = Trainer(
-        model=model,
-        args=training_args,
-        data_collator=collate_fn,
-        compute_metrics=compute_metrics,
-        train_dataset=image_datasets['train'],
-        eval_dataset=image_datasets['val'],
-        tokenizer=image_processor,
-    )
-    
-    train_results = trainer.train()
-    trainer.save_model()
-    trainer.log_metrics("train", train_results.metrics)
-    trainer.save_metrics("train", train_results.metrics)
-    trainer.save_state()
-    
-    
-    metrics = trainer.evaluate(image_datasets['val'])
-    
-    """
-    trainer.log_metrics("eval", metrics)
-    trainer.save_metrics("eval", metrics)
-    """
-    
-
-    """   
-    # Get a batch of training data
-    inputs, classes = next(iter(dataloaders['train']))
-    print(inputs.shape)
-    print(classes)
-    
-    # Make a grid from batch
-    out = torchvision.utils.make_grid(inputs)
-    print(out.shape)
-    
-    imshow(out, title=[class_names[x] for x in classes])
-    """
-    """
-    # Load a pretrained model and reset final fully connected layer for this particular classification problem.
-    
-    image_processor = AutoImageProcessor.from_pretrained("microsoft/swin-tiny-patch4-window7-224")
-    model = SwinForImageClassification.from_pretrained(
-        "microsoft/swin-tiny-patch4-window7-224",
-        num_labels=num_classes,
-        id2label=id2label,
-        label2id=label2id,
-        ignore_mismatched_sizes=True,
-    )
-    
-    #Print model info
-    print("Num labels:", model.num_labels)
-    print("\nModel config:", model.config)
-    num_params, size_all_mb = get_model_info(model)
-    print("Number of trainable params:", num_params)
-    print('Model size: {:.3f}MB'.format(size_all_mb))
-    
-    #Freeze model
-    for p in model.parameters():
-        p.requires_grad = False
-    
-    # Turn back on the classifier weights
-    for p in model.classifier.parameters():
-        p.requires_grad=True
-    
-    # Ok now how many trainable parameters do we have?
-    num_params, size_all_mb = get_model_info(model)
-    print("Number of trainable params:", num_params)
-    print('Model size: {:.3f}MB'.format(size_all_mb))
-    
-
-
-    training_args = TrainingArguments(
-        disable_tqdm=False,
-        output_dir=output_dir,
-        per_device_train_batch_size=16,
-        per_device_eval_batch_size=16,
-        evaluation_strategy="epoch",
-        save_strategy="epoch",
-        num_train_epochs=1,
-        lr_scheduler_type="cosine",
-        logging_steps=10,
-        save_total_limit=2,
-        remove_unused_columns=False,
-        push_to_hub=False,
-        load_best_model_at_end=True,
-        dataloader_num_workers=0,  
-        gradient_accumulation_steps=8,
-    )
-    
-    base_learning_rate = 1e-3
-    total_train_batch_size = (
-        training_args.train_batch_size * training_args.gradient_accumulation_steps * training_args.world_size
-    )
-    
-    training_args.learning_rate = base_learning_rate * total_train_batch_size / 256
-    print("Set learning rate to:", training_args.learning_rate)
-        
-    metric = evaluate.load("accuracy")
-    
-        
-    print("TRAINING\n\n")
     
     
     
-    
-    
-    trainer = Trainer(
-        model=model,
-        args=training_args,
-        train_dataset=image_datasets['train'],
-        eval_dataset=image_datasets['val'],
-        tokenizer=image_processor,
-        compute_metrics=compute_metrics,
-        data_collator=collate_fn,
-    )
-    
-    # Train
-    train_results = trainer.train()
-    trainer.save_model()
-    trainer.log_metrics("train", train_results.metrics)
-    trainer.save_metrics("train", train_results.metrics)
-    trainer.save_state()
-    
-    
-    #Evaluate on test set
-    #metrics = trainer.evaluate(image_datasets['test'])
-    #trainer.log_metrics("eval", metrics)
-    """
