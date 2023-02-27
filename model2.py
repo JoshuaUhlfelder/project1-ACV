@@ -119,19 +119,11 @@ if __name__ == "__main__":
         return batch
     
     
-    train_ds = tqdm(train_ds.map(transforms, 
-                                 batched=False, writer_batch_size=20000))
+    train_ds = tqdm(train_ds.map(transforms, writer_batch_size=20000))
     
     
     #train_ds[0:8]['image']
     
-    
-    img = train_ds[0]['image']['bytes']
-    image = io.BytesIO(img)
-    image = Image.open(image)
-    
-    
-    print(train_ds[0]['image'])
     
     image_processor = AutoImageProcessor.from_pretrained("google/vit-base-patch16-224")
     
