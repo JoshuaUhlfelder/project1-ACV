@@ -122,17 +122,19 @@ if __name__ == "__main__":
     train_ds = tqdm(train_ds.map(transforms, writer_batch_size=20000))
     
     
+    
     #train_ds[0:8]['image']
     
     
     image_processor = AutoImageProcessor.from_pretrained("google/vit-base-patch16-224")
     
     
+    def process_ds(ds):
+        new_column = ["pixel_values"] * len(ds)
+        ds = ds.add_column("pixel_values", new_column)
     
     
-    
-    
-    
+    new_column = ["foo"] * 3
     
     
     
