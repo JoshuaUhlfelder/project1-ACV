@@ -349,6 +349,22 @@ if __name__ == "__main__":
     imshow(out, title=[class_names[x] for x in classes])
     """
     
+    from pynvml import *
+
+
+    def print_gpu_utilization():
+        nvmlInit()
+        handle = nvmlDeviceGetHandleByIndex(0)
+        info = nvmlDeviceGetMemoryInfo(handle)
+        print(f"GPU memory occupied: {info.used//1024**2} MB.")
+        
+    def print_summary(result):
+        print(f"Time: {result.metrics['train_runtime']:.2f}")
+        print(f"Samples/second: {result.metrics['train_samples_per_second']:.2f}")
+        print_gpu_utilization()
+    
+    print_gpu_utilization()
+    
     # Load a pretrained model and reset final fully connected layer for this particular classification problem.
     
     image_processor = AutoImageProcessor.from_pretrained("google/vit-base-patch16-224")
