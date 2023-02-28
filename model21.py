@@ -319,8 +319,8 @@ print('Model size: {:.3f}MB'.format(size_all_mb))
 
 training_args = TrainingArguments(
     output_dir=output_dir,
-    per_device_train_batch_size=8,
-    per_device_eval_batch_size=8,
+    per_device_train_batch_size=16,
+    per_device_eval_batch_size=16,
     evaluation_strategy="epoch",
     save_strategy="epoch",
     num_train_epochs=5,
@@ -331,7 +331,7 @@ training_args = TrainingArguments(
     push_to_hub=False,
     load_best_model_at_end=True,
     dataloader_num_workers=0,  
-    gradient_accumulation_steps=4,
+    gradient_accumulation_steps=8,
 )
 
 base_learning_rate = 1e-3
