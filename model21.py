@@ -46,6 +46,12 @@ cudnn.benchmark = True
 plt.ion()
 
 
+        
+#Set metadata file and image data directory
+data_dir = '../HAM10000_images'
+metadata = 'HAM10000_metadata.csv'
+
+
 #Dataset creation for train, val, test
 class MyDataset(torch.utils.data.Dataset):
     """
@@ -138,20 +144,37 @@ class MyDataset(torch.utils.data.Dataset):
             image = self.image_transform(image)
             
             return image, label
-        except Exception as exc:  # <--- i know this isn't the best exception handling
+        #Bad images return None
+        except Exception as exc:  
             return None
 
-
-
-def collate_fn(batch):
-    # Filter failed images first
-    #batch = list(filter(lambda x: x is not None, batch))
+#Resize, flip, convert, normalize images for training
+data_transforms = {
+    'train': transforms.Compose([
+        transforms.RandomResizedCrop(size=224,scale=(0.3, 1.0)),
+        #Flip image vertically and horizontally with prob 0.5
+        transforms.RandomHorizontalFlip(),
+        transforms.RandomVerticalFlip(),
+        transforms.ToTensor(),
+        transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+    ]),
+    #Resize and crop images for validation
+    'val': transforms.Compose([
+        transforms.Resize(256),
+        transforms.CenterCrop(224),
+        transforms.ToTensor(),
+        transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+    ]),
+    #Resize and crop images for testing (locked away)
+    'test': transforms.Compose([
+        transforms.Resize(256),
+        transforms.CenterCrop(224),
+        transforms.ToTensor(),
+        transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+    ]),
+}
     
-    # Now collate into mini-batches
-    return {
-        "pixel_values": torch.stack([x[0] for x in batch]),
-        "labels": torch.LongTensor([x[1] for x in batch]),
-    }
+
 
 
 # Returns the lesion IDs for each split
@@ -168,85 +191,41 @@ def train_val_test_split(metadata):
     return {'train': train_les, 'val': val_les, 'test': test_les}
 
 
-def imshow(inp, title=None):
-    """Imshow for Tensor."""
-    inp = inp.numpy().transpose((1, 2, 0))
-    mean = np.array([0.485, 0.456, 0.406])
-    std = np.array([0.229, 0.224, 0.225])
-    inp = std * inp + mean
-    inp = np.clip(inp, 0, 1)
-    plt.imshow(inp)
-    if title is not None:
-        plt.title(title)
-    plt.pause(0.001)  # pause a bit so that plots are updated
 
 
-def train_model(model, criterion, optimizer, scheduler, num_epochs=10):
-    since = time.time()
 
-    best_model_wts = copy.deepcopy(model.state_dict())
-    best_acc = 0.0
+#Split lesions into sets
+splits = train_val_test_split(metadata)
 
-    for epoch in range(num_epochs):
-        print(f'Epoch {epoch}/{num_epochs - 1}')
-        print('-' * 10)
-        print(scheduler.get_last_lr())
+#create datasets
+print("Setting up datasets")
+image_datasets = {x: MyDataset(data_dir, metadata, data_transforms[x], sorted(list(splits[x]))) for x in ['train','val','test']}
 
-        # Each epoch has a training and validation phase
-        for phase in ['train', 'val']:
-            if phase == 'train':
-                model.train()  # Set model to training mode
-            else:
-                model.eval()   # Set model to evaluate mode
+#print("Setting up dataloaders")
+#dataloaders = {x: torch.utils.data.DataLoader(image_datasets[x], batch_size=8,
+#                                             shuffle=True, num_workers=0, collate_fn=collate_fn)
+#              for x in ['train', 'val']}
 
-            running_loss = 0.0
-            running_corrects = 0
 
-            # Iterate over data.
-            for inputs, labels in tqdm(dataloaders[phase]):
-                inputs = inputs.to(device)
-                labels = labels.to(device)
+dataset_sizes = {x: len(image_datasets[x]) for x in ['train', 'val', 'test']}
+class_names = image_datasets['train'].classes
+num_classes = len(class_names)
+print(dataset_sizes)
+print(class_names)
 
-                # zero the parameter gradients
-                optimizer.zero_grad()
+    
 
-                # forward
-                # track history if only in train
-                with torch.set_grad_enabled(phase == 'train'):
-                    outputs = model(inputs)
-                    _, preds = torch.max(outputs, 1)
-                    loss = criterion(outputs, labels)
 
-                    # backward + optimize only if in training phase
-                    if phase == 'train':
-                        loss.backward()
-                        optimizer.step()
 
-                # statistics
-                running_loss += loss.item() * inputs.size(0)
-                running_corrects += torch.sum(preds == labels.data)
-            if phase == 'train':
-                scheduler.step()
-
-            epoch_loss = running_loss / dataset_sizes[phase]
-            epoch_acc = running_corrects.double() / dataset_sizes[phase]
-
-            print(f'{phase} Loss: {epoch_loss:.4f} Acc: {epoch_acc:.4f}')
-
-            # deep copy the model
-            if phase == 'val' and epoch_acc > best_acc:
-                best_acc = epoch_acc
-                best_model_wts = copy.deepcopy(model.state_dict())
-
-        print()
-
-    time_elapsed = time.time() - since
-    print(f'Training complete in {time_elapsed // 60:.0f}m {time_elapsed % 60:.0f}s')
-    print(f'Best val Acc: {best_acc:4f}')
-
-    # load best model weights
-    model.load_state_dict(best_model_wts)
-    return model
+def collate_fn(batch):
+    # Filter failed images first
+    #batch = list(filter(lambda x: x is not None, batch))
+    
+    # Now collate into mini-batches
+    return {
+        "pixel_values": torch.stack([x[0] for x in batch]),
+        "labels": torch.LongTensor([x[1] for x in batch]),
+    }
 
 
 # A useful function to see the size and # of params of a model
@@ -267,176 +246,125 @@ def get_model_info(model):
     return num_params, size_all_mb
 
 
-
-if __name__ == "__main__":
-
+    
     
 
-    #Resize, flip, convert, normalize images for training
-    data_transforms = {
-        'train': transforms.Compose([
-            transforms.RandomResizedCrop(size=224,scale=(0.3, 1.0)),
-            #Flip image vertically and horizontally with prob 0.5
-            transforms.RandomHorizontalFlip(),
-            transforms.RandomVerticalFlip(),
-            transforms.ToTensor(),
-            transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
-        ]),
-        #Resize and crop images for validation
-        'val': transforms.Compose([
-            transforms.Resize(256),
-            transforms.CenterCrop(224),
-            transforms.ToTensor(),
-            transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
-        ]),
-        #Resize and crop images for testing (locked away)
-        'test': transforms.Compose([
-            transforms.Resize(256),
-            transforms.CenterCrop(224),
-            transforms.ToTensor(),
-            transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
-        ]),
-    }
-    
-        
-        
-    #Set metadata file and image data directory
-    data_dir = '../HAM10000_images'
-    metadata = 'HAM10000_metadata.csv'
 
 
-    #Split lesions into sets
-    splits = train_val_test_split(metadata)
-    
-    #create datasets
-    print("Setting up datasets")
-    image_datasets = {x: MyDataset(data_dir, metadata, data_transforms[x], sorted(list(splits[x]))) for x in ['train','val','test']}
-    
-    #print("Setting up dataloaders")
-    #dataloaders = {x: torch.utils.data.DataLoader(image_datasets[x], batch_size=8,
-    #                                             shuffle=True, num_workers=0, collate_fn=collate_fn)
-    #              for x in ['train', 'val']}
-    
-    
-    dataset_sizes = {x: len(image_datasets[x]) for x in ['train', 'val', 'test']}
-    class_names = image_datasets['train'].classes
-    num_classes = len(class_names)
-    print(dataset_sizes)
-    print(class_names)
-    
-        
-    # Create a lookup table to go between label name and index
-    id2label = {}
-    label2id = {}
-    for idx, label in enumerate(class_names):
-        id2label[str(idx)] = label
-        label2id[label] = str(idx)
-    
-    
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    print(device)
+# Create a lookup table to go between label name and index
+id2label = {}
+label2id = {}
+for idx, label in enumerate(class_names):
+    id2label[str(idx)] = label
+    label2id[label] = str(idx)
 
-    """   
-    # Get a batch of training data
-    inputs, classes = next(iter(dataloaders['train']))
-    print(inputs.shape)
-    print(classes)
-    
-    # Make a grid from batch
-    out = torchvision.utils.make_grid(inputs)
-    print(out.shape)
-    
-    imshow(out, title=[class_names[x] for x in classes])
-    """
 
-    
-    # Load a pretrained model and reset final fully connected layer for this particular classification problem.
-    
-    image_processor = AutoImageProcessor.from_pretrained("google/vit-base-patch16-224")
-    
-    model = ViTForImageClassification.from_pretrained(
-        "google/vit-base-patch16-224",
-        num_labels=num_classes,
-        id2label=id2label,
-        label2id=label2id,
-        ignore_mismatched_sizes=True,
-    )
-    
-    model = model.to(device)
-    
-    #Print out model info
-    print(model.classifier)
-    print("Num labels:", model.num_labels)
-    print("\nModel config:", model.config)
-    num_params, size_all_mb = get_model_info(model)
-    print("Number of trainable params:", num_params)
-    print('Model size: {:.3f}MB'.format(size_all_mb))
-    
-    #Freeze model
-    for p in model.parameters():
-        p.requires_grad = False
-    
-    # Turn back on the classifier weights
-    for p in model.classifier.parameters():
-        p.requires_grad=True
-    
-    # Ok now how many trainable parameters do we have?
-    num_params, size_all_mb = get_model_info(model)
-    print("Number of trainable params:", num_params)
-    print('Model size: {:.3f}MB'.format(size_all_mb))
-    
-    output_dir = "../model2_final"
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+print(device)
 
-    training_args = TrainingArguments(
-        output_dir=output_dir,
-        per_device_train_batch_size=16,
-        per_device_eval_batch_size=16,
-        evaluation_strategy="epoch",
-        save_strategy="epoch",
-        num_train_epochs=1,
-        lr_scheduler_type="cosine",
-        logging_steps=10,
-        save_total_limit=2,
-        remove_unused_columns=False,
-        push_to_hub=False,
-        load_best_model_at_end=True,
-        dataloader_num_workers=0,  
-        gradient_accumulation_steps=8,
-        log_level='debug'
-    )
+"""   
+# Get a batch of training data
+inputs, classes = next(iter(dataloaders['train']))
+print(inputs.shape)
+print(classes)
+
+# Make a grid from batch
+out = torchvision.utils.make_grid(inputs)
+print(out.shape)
+
+imshow(out, title=[class_names[x] for x in classes])
+"""
+
+
+# Load a pretrained model and reset final fully connected layer for this particular classification problem.
+
+image_processor = AutoImageProcessor.from_pretrained("google/vit-base-patch16-224")
+
+model = ViTForImageClassification.from_pretrained(
+    "google/vit-base-patch16-224",
+    num_labels=num_classes,
+    id2label=id2label,
+    label2id=label2id,
+    ignore_mismatched_sizes=True,
+)
+
+model = model.to(device)
+
+#Print out model info
+print(model.classifier)
+print("Num labels:", model.num_labels)
+print("\nModel config:", model.config)
+num_params, size_all_mb = get_model_info(model)
+print("Number of trainable params:", num_params)
+print('Model size: {:.3f}MB'.format(size_all_mb))
+
+#Freeze model
+for p in model.parameters():
+    p.requires_grad = False
+
+# Turn back on the classifier weights
+for p in model.classifier.parameters():
+    p.requires_grad=True
+
+# Ok now how many trainable parameters do we have?
+num_params, size_all_mb = get_model_info(model)
+print("Number of trainable params:", num_params)
+print('Model size: {:.3f}MB'.format(size_all_mb))
+
+output_dir = "../model2_final"
+
+training_args = TrainingArguments(
+    output_dir=output_dir,
+    per_device_train_batch_size=16,
+    per_device_eval_batch_size=16,
+    evaluation_strategy="epoch",
+    save_strategy="epoch",
+    num_train_epochs=5,
+    lr_scheduler_type="cosine",
+    logging_steps=10,
+    save_total_limit=2,
+    remove_unused_columns=False,
+    push_to_hub=False,
+    load_best_model_at_end=True,
+    dataloader_num_workers=0,  
+    gradient_accumulation_steps=8,
+    log_level='debug'
+)
+
+base_learning_rate = 1e-3
+total_train_batch_size = (
+    training_args.train_batch_size * training_args.gradient_accumulation_steps * training_args.world_size
+)
+
+training_args.learning_rate = base_learning_rate * total_train_batch_size / 256
+print("Set learning rate to:", training_args.learning_rate)
     
-    base_learning_rate = 1e-3
-    total_train_batch_size = (
-        training_args.train_batch_size * training_args.gradient_accumulation_steps * training_args.world_size
-    )
+metric = evaluate.load("accuracy")
+def compute_metrics(p):
+    return metric.compute(predictions=np.argmax(p.predictions, axis=1), references=p.label_ids)
     
-    training_args.learning_rate = base_learning_rate * total_train_batch_size / 256
-    print("Set learning rate to:", training_args.learning_rate)
-        
-    metric = evaluate.load("accuracy")
-    def compute_metrics(p):
-        return metric.compute(predictions=np.argmax(p.predictions, axis=1), references=p.label_ids)
-        
-    print("TRAINING")
-    trainer = Trainer(
-        model=model,
-        args=training_args,
-        train_dataset=image_datasets['train'],
-        eval_dataset=image_datasets['val'],
-        tokenizer=image_processor,
-        compute_metrics=compute_metrics,
-        data_collator=collate_fn,
-    )
-    
-    # Train
-    train_results = trainer.train()
-    trainer.save_model()
-    trainer.log_metrics("train", train_results.metrics)
-    trainer.save_metrics("train", train_results.metrics)
-    trainer.save_state()
-    
-    
-    #Evaluate on test set
-    #metrics = trainer.evaluate(image_datasets['test'])
-    #trainer.log_metrics("eval", metrics)
-    
+print("TRAINING")
+trainer = Trainer(
+    model=model,
+    args=training_args,
+    train_dataset=image_datasets['train'],
+    eval_dataset=image_datasets['val'],
+    tokenizer=image_processor,
+    compute_metrics=compute_metrics,
+    data_collator=collate_fn,
+)
+
+# Train
+train_results = trainer.train()
+trainer.save_model()
+trainer.log_metrics("train", train_results.metrics)
+trainer.save_metrics("train", train_results.metrics)
+trainer.log_metrics("val", train_results.metrics)
+trainer.save_metrics("val", train_results.metrics)
+trainer.save_state()
+
+
+#Evaluate on test set
+#metrics = trainer.evaluate(image_datasets['test'])
+#trainer.log_metrics("eval", metrics)
+
