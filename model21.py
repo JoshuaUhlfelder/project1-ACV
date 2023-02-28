@@ -301,6 +301,7 @@ num_params, size_all_mb = get_model_info(model)
 print("Number of trainable params:", num_params)
 print('Model size: {:.3f}MB'.format(size_all_mb))
 
+"""
 #Freeze model
 for p in model.parameters():
     p.requires_grad = False
@@ -308,6 +309,7 @@ for p in model.parameters():
 # Turn back on the classifier weights
 for p in model.classifier.parameters():
     p.requires_grad=True
+"""
 
 # Ok now how many trainable parameters do we have?
 num_params, size_all_mb = get_model_info(model)
