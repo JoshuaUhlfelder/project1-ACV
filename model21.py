@@ -362,7 +362,7 @@ if __name__ == "__main__":
         ignore_mismatched_sizes=True,
     )
     
-    #model = model.to(device)
+    model = model.to(device)
     
     #Print out model info
     print(model.classifier)
@@ -402,7 +402,7 @@ if __name__ == "__main__":
         load_best_model_at_end=True,
         dataloader_num_workers=0,  
         gradient_accumulation_steps=8,
-        no_cuda=True,
+        log_level='debug'
     )
     
     base_learning_rate = 1e-3
