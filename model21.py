@@ -281,10 +281,11 @@ imshow(out, title=[class_names[x] for x in classes])
 
 # Load a pretrained model and reset final fully connected layer for this particular classification problem.
 
-image_processor = AutoImageProcessor.from_pretrained("google/vit-base-patch16-224")
+
+image_processor = AutoImageProcessor.from_pretrained('facebook/vit-mae-large')
 
 model = ViTForImageClassification.from_pretrained(
-    "google/vit-base-patch16-224",
+    'facebook/vit-mae-large',
     num_labels=num_classes,
     id2label=id2label,
     label2id=label2id,
@@ -362,8 +363,6 @@ train_results = trainer.train()
 trainer.save_model()
 trainer.log_metrics("train", train_results.metrics)
 trainer.save_metrics("train", train_results.metrics)
-trainer.log_metrics("val", train_results.metrics)
-trainer.save_metrics("val", train_results.metrics)
 trainer.save_state()
 
 
