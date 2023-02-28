@@ -131,6 +131,7 @@ print("\nModel config:", model.config)
 # In[ ]:
 
 
+
 # A useful function to see the size and # of params of a model
 def get_model_info(model):
     # Compute number of trainable parameters in the model
