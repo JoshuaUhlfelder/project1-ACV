@@ -282,10 +282,10 @@ imshow(out, title=[class_names[x] for x in classes])
 # Load a pretrained model and reset final fully connected layer for this particular classification problem.
 
 
-image_processor = AutoImageProcessor.from_pretrained("microsoft/beit-base-patch16-224-pt22k")
+image_processor = AutoImageProcessor.from_pretrained('facebook/deit-base-patch16-224')
 
 model = ViTForImageClassification.from_pretrained(
-    "microsoft/beit-base-patch16-224-pt22k",
+    'facebook/deit-base-patch16-224',
     num_labels=num_classes,
     id2label=id2label,
     label2id=label2id,
