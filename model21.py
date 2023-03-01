@@ -282,10 +282,10 @@ imshow(out, title=[class_names[x] for x in classes])
 # Load a pretrained model and reset final fully connected layer for this particular classification problem.
 
 
-image_processor = AutoImageProcessor.from_pretrained('facebook/deit-base-patch16-224')
+image_processor = AutoImageProcessor.from_pretrained('google/vit-base-patch16-224')
 
 model = ViTForImageClassification.from_pretrained(
-    'facebook/deit-base-patch16-224',
+    'google/vit-base-patch16-224',
     num_labels=num_classes,
     id2label=id2label,
     label2id=label2id,
@@ -335,7 +335,7 @@ training_args = TrainingArguments(
     gradient_accumulation_steps=8,
 )
 
-base_learning_rate = 1e-3
+base_learning_rate = 2e-3
 total_train_batch_size = (
     training_args.train_batch_size * training_args.gradient_accumulation_steps * training_args.world_size
 )
