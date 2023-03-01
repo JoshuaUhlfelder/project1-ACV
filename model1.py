@@ -262,7 +262,7 @@ if __name__ == "__main__":
     #Resize, flip, convert, normalize images for training
     data_transforms = {
         'train': transforms.Compose([
-            transforms.RandomResizedCrop(size=224,scale=(0.3, 1.0)),
+            transforms.RandomResizedCrop(size=224,scale=(0.8, 1.0)),
             #Flip image vertically and horizontally with prob 0.5
             transforms.RandomHorizontalFlip(),
             transforms.RandomVerticalFlip(),
@@ -315,7 +315,7 @@ if __name__ == "__main__":
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     print(device)
 
-    """   
+      
     # Get a batch of training data
     inputs, classes = next(iter(dataloaders['train']))
     print(inputs.shape)
@@ -326,7 +326,18 @@ if __name__ == "__main__":
     print(out.shape)
     
     imshow(out, title=[class_names[x] for x in classes])
-    """
+    
+    # Get a batch of val data
+    inputs, classes = next(iter(dataloaders['val']))
+    print(inputs.shape)
+    print(classes)
+    
+    # Make a grid from batch
+    out = torchvision.utils.make_grid(inputs)
+    print(out.shape)
+    
+    imshow(out, title=[class_names[x] for x in classes])
+    
     
     # Load a pretrained model and reset final fully connected layer for this particular classification problem.
     
