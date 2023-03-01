@@ -27,7 +27,7 @@ from PIL import Image
 import csv
 from sklearn.model_selection import train_test_split
 from tqdm import tqdm
-
+import transformers
 from transformers import (
     AutoImageProcessor, 
     ViTForImageClassification, 
@@ -324,8 +324,9 @@ training_args = TrainingArguments(
     per_device_eval_batch_size=16,
     evaluation_strategy="epoch",
     save_strategy="epoch",
-    num_train_epochs=5,
-    lr_scheduler_type="cosine",
+    num_train_epochs=9,
+    lr_scheduler_type='cosine',
+    warmup_steps = 3,
     logging_steps=10,
     save_total_limit=2,
     remove_unused_columns=False,
@@ -335,7 +336,7 @@ training_args = TrainingArguments(
     gradient_accumulation_steps=8,
 )
 
-base_learning_rate = 2e-3
+base_learning_rate = 1e-3
 total_train_batch_size = (
     training_args.train_batch_size * training_args.gradient_accumulation_steps * training_args.world_size
 )
