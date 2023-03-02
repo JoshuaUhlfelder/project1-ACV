@@ -407,7 +407,7 @@ class MultimodalBertClassifier(nn.Module):
         # Now sum them all up and normalize
         image_emb = image_emb + image_position_emb + image_type_emb
         image_emb = self.bert.embeddings.LayerNorm(image_emb)
-        image_emb = self.bert.embeddings.dropout(image_emb)
+        #image_emb = self.bert.embeddings.dropout(image_emb)
         
         # Embed the text, add positional embeddings and store the embedding outputs
         text_embedding_output = self.bert.embeddings(
@@ -439,7 +439,7 @@ class MultimodalBertClassifier(nn.Module):
         # Get the pooled output for classification and apply the classifier head
         sequence_outputs = encoder_outputs[0]
         pooled_output = self.bert.pooler(sequence_outputs)  # Use CLS_TOKEN embedding
-        pooled_output = self.dropout(pooled_output)
+        #pooled_output = self.dropout(pooled_output)
         logits = self.classifier(pooled_output)
         
         loss = None
