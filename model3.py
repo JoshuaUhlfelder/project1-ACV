@@ -92,6 +92,7 @@ class MyDataset(torch.utils.data.Dataset):
         # This is a trick to avoid memory leaks over very large datasets.
         self.image_files = np.array(image_files)
         self.labels = np.array(labels).astype("int")
+        self.info = np.array(info).astype("object")
         
         # How many total images do we need to iterate in this entire dataset?
         self.num_images = len(self.image_files)
@@ -127,8 +128,7 @@ class MyDataset(torch.utils.data.Dataset):
             for index, row in results.iterrows():
                 image_files += [images_dir + '/' + (row['image_id'] + '.jpg')]
                 labels += [class_labels[row['dx']]]
-                info += (row['lesion_id'], row['dx_type'], row['age'], 
-                         row['sex'], row['localization'],)
+                info.append(tuple((row['age'], row['sex'], row['localization'],)))
         return image_files, labels, info
     
     def __getitem__(self, idx):  
@@ -139,6 +139,7 @@ class MyDataset(torch.utils.data.Dataset):
             # Try to open the image file and convert it to RGB.
             image = Image.open(self.image_files[idx]).convert('RGB')
             label = self.labels[idx]
+            info = self.info[idx]
             
             #Will used this in future models
             #info = self.info[idx]
@@ -146,7 +147,7 @@ class MyDataset(torch.utils.data.Dataset):
             # Apply the image transform
             image = self.image_transform(image)
             
-            return image, label
+            return image, label, info
         #Bad images return None
         except Exception as exc:  
             return None
@@ -218,17 +219,120 @@ print(class_names)
 
     
 
+class MyTokenizer():
+    """
+    This class needs the directory where all the images are stored,
+    a metadata file, the transform operations for each set,
+    and a list of lesions in each set
+    """
+    def __init__(
+        self,
+        metadata, #metadata file to get localizations
+    ):
+        # Retrieves localization list from metadata file
+        self.localizations = self.get_localizations(metadata)
+
+    
+    def get_localizations(self, metadata):
+        #Return a dictionary of all localizations mapped to unique indexes
+        l_names = set()
+        with open(metadata, newline='') as csvfile:
+            reader = csv.reader(csvfile, delimiter=',', quotechar='|')
+            next(reader)
+            for row in reader:
+                l_names.add(row[6])
+        
+        localizations = {}
+        for idx, label in enumerate(l_names):
+            localizations[label] = idx
+        
+        return localizations #convert set to list and return
+    
+    def tokenize(self, input_tuples):
+        length = len(input_tuples)
+        ids = []
+        types = []
+        mask = []
+
+        
+        for i in range(length):
+            input_tuple = tuple(input_tuples[1])
+            print(input_tuple)
+            age = input_tuple[0]
+            sex = input_tuple[1]
+            loc = input_tuple[2]
+            
+            
+            
+            if sex == 'male':
+                new_sex = 0
+            else:
+                new_sex = 1
+                    
+            try:
+                new_loc = self.localizations[loc]
+            except:
+                raise Exception("Error finding localization")
+            
+            ids.append([int(float(age)), int(new_sex), int(new_loc)])
+            types.append([0,0,0])
+            mask.append([1,1,1])
+            
+        ids = torch.tensor(ids)
+        types = torch.tensor(types)
+        mask = torch.tensor(mask)
+            
+        
+        return {'input_ids': ids, 'token_type_ids': types, 'attention_mask': mask}
+        
+
+image_preprocessor = AutoImageProcessor.from_pretrained("microsoft/resnet-50")
+text_tokenizer = MyTokenizer(metadata)
 
 
 def collate_fn(batch):
     # Filter failed images first
-    #batch = list(filter(lambda x: x is not None, batch))
+    print('\n\nHAHAHA:', batch[0])
     
-    # Now collate into mini-batches
+    tokenized_text = text_tokenizer.tokenize([x[2] for x in batch])
+    print(tokenized_text)
+
+    # Process the images
+    processed_images = image_preprocessor([x[0] for x in batch], return_tensors="pt", padding=True)
+    
+    # Collect the labels
+    labels = torch.LongTensor([x[1] for x in batch])
+    print(labels)
+    print(type(labels))
+    
     return {
-        "pixel_values": torch.stack([x[0] for x in batch]),
-        "labels": torch.LongTensor([x[1] for x in batch]),
+        "text": tokenized_text,
+        "images": processed_images,
+        "labels": labels,
     }
+
+
+
+dataloader = torch.utils.data.DataLoader(
+    image_datasets['train'], 
+    batch_size=2,
+    shuffle=True, 
+    num_workers=0, 
+    collate_fn=collate_fn,
+)
+
+
+
+for batch in dataloader:
+    break
+
+
+batch["labels"]
+
+
+batch["text"]['attention_mask']
+
+batch["images"]["pixel_values"].shape
 
 
 # A useful function to see the size and # of params of a model
@@ -284,6 +388,16 @@ imshow(out, title=[class_names[x] for x in classes])
 
 image_processor = AutoImageProcessor.from_pretrained('google/vit-base-patch16-224')
 
+
+
+image_preprocessor = AutoImageProcessor.from_pretrained("microsoft/resnet-50")
+
+
+
+
+
+
+
 model = ViTForImageClassification.from_pretrained(
     'google/vit-base-patch16-224',
     num_labels=num_classes,
@@ -292,7 +406,137 @@ model = ViTForImageClassification.from_pretrained(
     ignore_mismatched_sizes=True,
 )
 
-model = model.to(device)
+
+
+
+
+# Create a custom multimodal model by modifying BERT and using ResNet50
+# to do multimodal classification
+class MultimodalBertClassifier(nn.Module):
+    def __init__(
+        self,
+        num_labels,
+    ):  
+        super().__init__()
+        
+        self.bert = BertModel.from_pretrained("bert-base-uncased")
+        self.resnet = ResNetModel.from_pretrained("microsoft/resnet-50")
+        
+        self.num_labels = num_labels
+        
+        # FC layer to project image embeddings to hidden dims of BERT.
+        # We hard-code the assumption that the output of the resnet last 
+        # hidden state is 2048 feature dims.
+        self.image_tokenizer = nn.Linear(2048, self.bert.config.hidden_size)
+        
+        # Image position embeddings.  We hard-code assumption that output of 
+        # last hidden state in resnet model is [batch_size, 2048, 7, 7].  The
+        # 7*7 gets flattened to 49 sequence length.
+        self.image_pos_emb = nn.Embedding(49, self.bert.config.hidden_size)
+        
+        self.dropout = nn.Dropout(self.bert.config.hidden_dropout_prob)
+        self.classifier = nn.Linear(self.bert.config.hidden_size, self.num_labels)
+        
+    def forward(
+        self,
+        text,
+        images,
+        labels=None,
+    ):
+        # Encode the images.  The last hidden state (which is what we want)
+        # has a shape of: [batch_size, 2048, 7, 7].
+        image_outputs = self.resnet(**images)
+        
+        # Permute the dimensions and project to hidden dims for BERT.  Be sure
+        # to flatten the spatial dims out first:
+        #
+        # [batch_size, 2048, 7, 7] -> [batch_size, 2048, 49] -> [batch_size, 49, 2048]
+        image_emb = image_outputs.last_hidden_state.flatten(2).permute(0, 2, 1)
+        image_emb = self.image_tokenizer(image_emb)  # [batch_size, 49, 2048] -> [batch_size, 49, 768]
+        
+        # Apply position embeddings and token-type embeddings to the image embeddings.
+        # Note that we use different position embeddings for the image tokens
+        # from the text tokens.
+        image_position_ids = torch.arange(image_emb.shape[1]).repeat(image_emb.shape[0], 1).to(image_emb.device)
+        image_position_emb = self.image_pos_emb(image_position_ids)
+        
+        # Also, use the token_type_id=1 for images, and 0 is used for all the text.
+        # Use the pre-trained BERT model to get token-type embeddings
+        image_type_ids = torch.LongTensor([1] * image_emb.shape[1]).repeat(image_emb.shape[0], 1).to(image_emb.device)
+        image_type_emb = self.bert.embeddings.token_type_embeddings(image_type_ids)
+        
+        # Now sum them all up and normalize
+        image_emb = image_emb + image_position_emb + image_type_emb
+        image_emb = self.bert.embeddings.LayerNorm(image_emb)
+        image_emb = self.bert.embeddings.dropout(image_emb)
+        
+        # Embed the text, add positional embeddings and store the embedding outputs
+        text_embedding_output = self.bert.embeddings(
+            input_ids=text.input_ids,
+            token_type_ids=text.token_type_ids,
+        )
+        
+        # Concatenate all of the embeddings on the time dimension
+        embedding_output = torch.cat([text_embedding_output, image_emb], 1)
+        
+        # Before we put all this into the transformer encoder, we need to 
+        # extend the attention mask to include all of the image token embeddings, but
+        # exclude any of the padded text token embeddings.  In Huggingface notation,
+        # 1 means keep and 0 means ignore
+        image_attention_mask = torch.LongTensor([1] * image_emb.shape[1]).repeat(image_emb.shape[0], 1).to(image_emb.device)
+        extended_attention_mask = torch.cat([text.attention_mask, image_attention_mask], 1)
+        
+        # Make broadcastable attention masks so that masked tokens are ignored (does some pre-processing
+        # to prepare for the encoder)
+        input_shape = (embedding_output.shape[0], embedding_output.shape[1])
+        extended_attention_mask = self.bert.get_extended_attention_mask(extended_attention_mask, input_shape)
+
+        # And then encode
+        encoder_outputs = self.bert.encoder(
+            embedding_output,
+            attention_mask=extended_attention_mask,
+        )
+        
+        # Get the pooled output for classification and apply the classifier head
+        sequence_outputs = encoder_outputs[0]
+        pooled_output = self.bert.pooler(sequence_outputs)  # Use CLS_TOKEN embedding
+        pooled_output = self.dropout(pooled_output)
+        logits = self.classifier(pooled_output)
+        
+        loss = None
+        if labels is not None:
+            loss_fct = nn.CrossEntropyLoss()
+            loss = loss_fct(logits.view(-1, self.num_labels), labels.view(-1))
+        
+        return SequenceClassifierOutput(
+            loss=loss,
+            logits=logits,
+        )
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 #Print out model info
 print(model.classifier)

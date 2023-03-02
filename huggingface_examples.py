@@ -297,7 +297,7 @@ model = SwinForImageClassification.from_pretrained(
 
 
 
-"""
+
 
 
 # ## Let's now modify a BERT model to do multi-model classification on the Hateful Memes dataset.
@@ -615,5 +615,4 @@ trainer.log_metrics("test", metrics)
 # In[ ]:
 
 
-"""
 
