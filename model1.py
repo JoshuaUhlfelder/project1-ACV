@@ -300,7 +300,7 @@ if __name__ == "__main__":
     image_datasets = {x: MyDataset(data_dir, metadata, data_transforms[x], sorted(list(splits[x]))) for x in ['train','val','test']}
     
     print("Setting up dataloaders")
-    dataloaders = {x: torch.utils.data.DataLoader(image_datasets[x], batch_size=64,
+    dataloaders = {x: torch.utils.data.DataLoader(image_datasets[x], batch_size=8,
                                                  shuffle=True, num_workers=0, collate_fn=collate_fn)
                   for x in ['train', 'val']}
     
