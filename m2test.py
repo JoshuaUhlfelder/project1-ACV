@@ -368,6 +368,4 @@ print(accuracy_score(trues, preds))
 print(recall_score(trues, preds, average=None))
 print(precision_score(trues, preds, average=None))
 
-matrix = confusion_matrix(trues, preds)
-print(matrix.diagonal()/matrix.sum(axis=1))
 

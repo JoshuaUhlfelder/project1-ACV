@@ -53,7 +53,7 @@ data_dir = '../HAM10000_images'
 metadata = 'HAM10000_metadata.csv'
 
 #Set directory to output model
-output_dir = "../model3_final"
+output_dir = "../model3_finaltest"
 
 
 #Dataset creation for train, val, test
@@ -547,18 +547,6 @@ trainer = Trainer(
     compute_metrics=compute_metrics,
     data_collator=collate_fn,
 )
-
-
-
-# Train
-train_results = trainer.train()
-trainer.save_model()
-trainer.log_metrics("train", train_results.metrics)
-trainer.save_metrics("train", train_results.metrics)
-trainer.save_state()
-
-metrics = trainer.evaluate(image_datasets["val"])
-trainer.log_metrics("test", metrics)
 
 
 print('predicting')
