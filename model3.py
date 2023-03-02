@@ -513,13 +513,14 @@ training_args = TrainingArguments(
     load_best_model_at_end=True,
     dataloader_num_workers=0,  
     gradient_accumulation_steps=1,
+    warmup_steps=(5)
 )
 
 
 
 
 # Compute absolute learning rate
-base_learning_rate = 1e-4
+base_learning_rate = 2e-3
 total_train_batch_size = (
     training_args.train_batch_size * training_args.gradient_accumulation_steps * training_args.world_size
 )
@@ -560,4 +561,6 @@ trainer.save_state()
 metrics = trainer.evaluate(image_datasets["val"])
 trainer.log_metrics("test", metrics)
 
-
+pred = trainer.predict(image_datasets["val"])
+type(pred)
+print(pred)
