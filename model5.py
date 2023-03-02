@@ -53,7 +53,7 @@ data_dir = '../HAM10000_images'
 metadata = 'HAM10000_metadata.csv'
 
 #Set directory to output model
-output_dir = "../model4_final"
+output_dir = "../model5_final"
 
 
 #Dataset creation for train, val, test
