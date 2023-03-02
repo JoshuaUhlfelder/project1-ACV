@@ -504,7 +504,7 @@ training_args = TrainingArguments(
     per_device_eval_batch_size=64,
     evaluation_strategy="epoch",
     save_strategy="epoch",
-    num_train_epochs=2,
+    num_train_epochs=3,
     lr_scheduler_type="linear",
     logging_steps=1,
     save_total_limit=2,
@@ -519,7 +519,7 @@ training_args = TrainingArguments(
 
 
 # Compute absolute learning rate
-base_learning_rate = 1e-3
+base_learning_rate = 1#e-3
 total_train_batch_size = (
     training_args.train_batch_size * training_args.gradient_accumulation_steps * training_args.world_size
 )
@@ -551,7 +551,7 @@ trainer = Trainer(
 
 
 # Train
-train_results = trainer.train(resume_from_checkpoint=True)
+train_results = trainer.train()
 trainer.save_model()
 trainer.log_metrics("train", train_results.metrics)
 trainer.save_metrics("train", train_results.metrics)
