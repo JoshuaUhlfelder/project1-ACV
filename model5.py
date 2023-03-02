@@ -53,7 +53,7 @@ data_dir = '../HAM10000_images'
 metadata = 'HAM10000_metadata.csv'
 
 #Set directory to output model
-output_dir = "../model3_final"
+output_dir = "../model4_final"
 
 
 #Dataset creation for train, val, test
@@ -129,7 +129,7 @@ class MyDataset(torch.utils.data.Dataset):
             for index, row in results.iterrows():
                 image_files += [images_dir + '/' + (row['image_id'] + '.jpg')]
                 labels += [class_labels[row['dx']]]
-                info.append(tuple((row['age'], row['sex'], row['localization'],)))
+                info.append(str(row['age']) + ',' + str(row['sex']) + ',' + str(row['localization']))
         return image_files, labels, info
     
     def __getitem__(self, idx):  
@@ -220,90 +220,14 @@ print(class_names)
 
     
 
-class MyTokenizer():
-    """
-    This class needs the directory where all the images are stored,
-    a metadata file, the transform operations for each set,
-    and a list of lesions in each set
-    """
-    def __init__(
-        self,
-        metadata, #metadata file to get localizations
-    ):
-        # Retrieves localization list from metadata file
-        self.localizations = self.get_localizations(metadata)
-
-    
-    def get_localizations(self, metadata):
-        #Return a dictionary of all localizations mapped to unique indexes
-        l_names = set()
-        with open(metadata, newline='') as csvfile:
-            reader = csv.reader(csvfile, delimiter=',', quotechar='|')
-            next(reader)
-            for row in reader:
-                l_names.add(row[6])
-        l_names = sorted(l_names)
-        localizations = {}
-        for idx, label in enumerate(l_names):
-            localizations[label] = idx
-        
-        return localizations #convert set to list and return
-    
-    def tokenize(self, input_tuples):
-        length = len(input_tuples)
-        ids = []
-        types = []
-        mask = []
-        #For each frame in the batch, put the sex, localization, and age into a list
-        for i in range(length):
-            input_tuple = tuple(input_tuples[i])
-            age = input_tuple[0]
-            sex = input_tuple[1]
-            loc = input_tuple[2]
-            
-            
-            #Set sex to label
-            new_sex = 0
-            #0 = male, 1 = female, #-1 = unknown
-            if sex == 'male':
-                new_sex = 0
-            elif sex == 'female':
-                new_sex = 1
-            else:
-                new_sex == 2
-                   
-            #Get the localization label from table in tokenizer
-            try:
-                new_loc = self.localizations[loc]
-            except:
-                raise Exception("Error finding localization")
-            
-            #Check if age field is unknown and set to 0
-            if age == 'nan':
-                age = 0
-            
-            #Add each list to end of prev. list
-            ids.append([int(float(age)), int(new_sex), int(new_loc)])
-            types.append([0,0,0])
-            mask.append([1,1,1])
-            
-        #Convert the lists of lists to tensors
-        ids = torch.tensor(ids)
-        types = torch.tensor(types)
-        mask = torch.tensor(mask)
-            
-        
-        return {'input_ids': ids, 'token_type_ids': types, 'attention_mask': mask}
-        
 
 image_preprocessor = AutoImageProcessor.from_pretrained("microsoft/resnet-50")
-text_tokenizer = MyTokenizer(metadata)
+text_tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased")
 
 
 def collate_fn(batch):
     # Filter failed images first
-    
-    tokenized_text = text_tokenizer.tokenize([x[2] for x in batch])
+    tokenized_text = text_tokenizer([x[2] for x in batch], return_tensors="pt", padding=True)
 
     # Process the images
     processed_images = image_preprocessor([x[0] for x in batch], return_tensors="pt", padding=True)
@@ -407,12 +331,12 @@ class MultimodalBertClassifier(nn.Module):
         # Now sum them all up and normalize
         image_emb = image_emb + image_position_emb + image_type_emb
         image_emb = self.bert.embeddings.LayerNorm(image_emb)
-        #image_emb = self.bert.embeddings.dropout(image_emb)
+        image_emb = self.bert.embeddings.dropout(image_emb)
         
         # Embed the text, add positional embeddings and store the embedding outputs
         text_embedding_output = self.bert.embeddings(
-            input_ids=text['input_ids'],
-            token_type_ids=text['token_type_ids'],
+            input_ids=text.input_ids,
+            token_type_ids=text.token_type_ids,
         )
         
         # Concatenate all of the embeddings on the time dimension
@@ -423,7 +347,7 @@ class MultimodalBertClassifier(nn.Module):
         # exclude any of the padded text token embeddings.  In Huggingface notation,
         # 1 means keep and 0 means ignore
         image_attention_mask = torch.LongTensor([1] * image_emb.shape[1]).repeat(image_emb.shape[0], 1).to(image_emb.device)
-        extended_attention_mask = torch.cat([text["attention_mask"], image_attention_mask], 1)
+        extended_attention_mask = torch.cat([text.attention_mask, image_attention_mask], 1)
         
         # Make broadcastable attention masks so that masked tokens are ignored (does some pre-processing
         # to prepare for the encoder)
@@ -439,7 +363,7 @@ class MultimodalBertClassifier(nn.Module):
         # Get the pooled output for classification and apply the classifier head
         sequence_outputs = encoder_outputs[0]
         pooled_output = self.bert.pooler(sequence_outputs)  # Use CLS_TOKEN embedding
-        #pooled_output = self.dropout(pooled_output)
+        pooled_output = self.dropout(pooled_output)
         logits = self.classifier(pooled_output)
         
         loss = None
@@ -501,16 +425,16 @@ print(device)
 training_args = TrainingArguments(
     output_dir=output_dir,
     per_device_train_batch_size=64,
-    per_device_eval_batch_size=16,
+    per_device_eval_batch_size=64,
     evaluation_strategy="epoch",
-    save_strategy="no",
-    num_train_epochs=3,
+    save_strategy="epoch",
+    num_train_epochs=2,
     lr_scheduler_type="cosine",
-    logging_steps=8,
-    save_total_limit=2,
+    logging_steps=5,
+    save_total_limit=0,
     remove_unused_columns=False,
     push_to_hub=False,
-    load_best_model_at_end=False,
+    load_best_model_at_end=True,
     dataloader_num_workers=0,  
     gradient_accumulation_steps=1,
 )
@@ -519,7 +443,7 @@ training_args = TrainingArguments(
 
 
 # Compute absolute learning rate
-base_learning_rate = 1e-2
+base_learning_rate = 1e-3
 total_train_batch_size = (
     training_args.train_batch_size * training_args.gradient_accumulation_steps * training_args.world_size
 )
@@ -557,9 +481,8 @@ trainer.log_metrics("train", train_results.metrics)
 trainer.save_metrics("train", train_results.metrics)
 trainer.save_state()
 
-metrics = trainer.evaluate(image_datasets["val"])
+metrics = trainer.evaluate(image_datasets["test"])
 trainer.log_metrics("test", metrics)
 
-pred = trainer.predict(image_datasets["val"])
-type(pred)
-print(pred)
+
+

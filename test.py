@@ -53,7 +53,7 @@ data_dir = '../HAM10000_images'
 metadata = 'HAM10000_metadata.csv'
 
 #Set directory to output model
-output_dir = "../model2_final3"
+output_dir = "../model2_finaltest"
 
 
 #Dataset creation for train, val, test
@@ -155,7 +155,7 @@ class MyDataset(torch.utils.data.Dataset):
 #Resize, flip, convert, normalize images for training
 data_transforms = {
     'train': transforms.Compose([
-        transforms.RandomResizedCrop(size=224,scale=(0.8, 1.0)),
+        transforms.RandomResizedCrop(size=224,scale=(0.2, 1.0)),
         #Flip image vertically and horizontally with prob 0.5
         transforms.RandomHorizontalFlip(),
         transforms.RandomVerticalFlip(),
@@ -312,7 +312,7 @@ print('Model size: {:.3f}MB'.format(size_all_mb))
 training_args = TrainingArguments(
     output_dir=output_dir,
     per_device_train_batch_size=64,
-    per_device_eval_batch_size=16,
+    per_device_eval_batch_size=32,
     evaluation_strategy="epoch",
     save_strategy="epoch",
     num_train_epochs=9,
