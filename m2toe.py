@@ -1,3 +1,4 @@
+
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
@@ -48,11 +49,11 @@ plt.ion()
 
         
 #Set metadata file and image data directory
-data_dir = '../HAM10000_images'
-metadata = 'HAM10000_metadata.csv'
+data_dir = '../mytoe'
+metadata = 'toe_metadata.csv'
 
 #Set directory to output model
-output_dir = "../model2_final"
+output_dir = "../model2_toe"
 
 
 #Dataset creation for train, val, test
@@ -281,18 +282,8 @@ imshow(out, title=[class_names[x] for x in classes])
 
 # Load a pretrained model and reset final fully connected layer for this particular classification problem.
 
-
 image_processor = AutoImageProcessor.from_pretrained('google/vit-base-patch16-224')
-
-model = ViTForImageClassification.from_pretrained(
-    'google/vit-base-patch16-224',
-    num_labels=num_classes,
-    id2label=id2label,
-    label2id=label2id,
-    ignore_mismatched_sizes=True,
-)
-
-model = model.to(device)
+model = ViTForImageClassification.from_pretrained("../model2_final")
 
 #Print out model info
 print(model.classifier)
@@ -320,8 +311,8 @@ print('Model size: {:.3f}MB'.format(size_all_mb))
 
 training_args = TrainingArguments(
     output_dir=output_dir,
-    per_device_train_batch_size=64,
-    per_device_eval_batch_size=16,
+    per_device_train_batch_size=1,
+    per_device_eval_batch_size=1,
     evaluation_strategy="epoch",
     save_strategy="epoch",
     num_train_epochs=9,
@@ -352,21 +343,31 @@ trainer = Trainer(
     model=model,
     args=training_args,
     train_dataset=image_datasets['train'],
-    eval_dataset=image_datasets['test'],
+    eval_dataset=image_datasets['val'],
     tokenizer=image_processor,
     compute_metrics=compute_metrics,
     data_collator=collate_fn,
 )
 
 # Train
+"""
 train_results = trainer.train()
 trainer.save_model()
 trainer.log_metrics("train", train_results.metrics)
 trainer.save_metrics("train", train_results.metrics)
 trainer.save_state()
+"""
+
+print('predicting')
+predictions = trainer.predict(image_datasets['val'])
+preds = np.argmax(predictions.predictions, axis=-1)
+trues = predictions.label_ids
+from sklearn.metrics import recall_score, precision_score
+
+print(preds)
+print(trues)
 
 
-#Evaluate on test set
-metrics = trainer.evaluate(image_datasets['test'])
-trainer.log_metrics("eval", metrics)
+print(recall_score(trues, preds, average=None))
+print(precision_score(trues, preds, average=None))
 
