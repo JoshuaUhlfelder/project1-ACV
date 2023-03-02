@@ -242,7 +242,7 @@ class MyTokenizer():
             next(reader)
             for row in reader:
                 l_names.add(row[6])
-        
+        l_names = sorted(l_names)
         localizations = {}
         for idx, label in enumerate(l_names):
             localizations[label] = idx
@@ -254,28 +254,33 @@ class MyTokenizer():
         ids = []
         types = []
         mask = []
-
         #For each frame in the batch, put the sex, localization, and age into a list
         for i in range(length):
-            input_tuple = tuple(input_tuples[1])
-            print(input_tuple)
+            input_tuple = tuple(input_tuples[i])
             age = input_tuple[0]
             sex = input_tuple[1]
             loc = input_tuple[2]
+            print(input_tuple)
             
             
             #Set sex to label
-            #0 = male, 1 = female
+            #0 = male, 1 = female, #-1 = unknown
             if sex == 'male':
                 new_sex = 0
-            else:
+            elif sex == 'female':
                 new_sex = 1
+            else:
+                sex == 2
                    
             #Get the localization label from table in tokenizer
             try:
                 new_loc = self.localizations[loc]
             except:
                 raise Exception("Error finding localization")
+            
+            #Check if age field is unknown and set to 0
+            if age == 'nan':
+                age = 0
             
             #Add each list to end of prev. list
             ids.append([int(float(age)), int(new_sex), int(new_loc)])
@@ -379,7 +384,7 @@ class MultimodalBertClassifier(nn.Module):
     ):
         # Encode the images.  The last hidden state (which is what we want)
         # has a shape of: [batch_size, 2048, 7, 7].
-        
+        print("foreward")
         image_outputs = self.resnet(**images)
         
         # Permute the dimensions and project to hidden dims for BERT.  Be sure
@@ -406,8 +411,6 @@ class MultimodalBertClassifier(nn.Module):
         image_emb = self.bert.embeddings.dropout(image_emb)
         
         # Embed the text, add positional embeddings and store the embedding outputs
-        print(text)
-        print
         text_embedding_output = self.bert.embeddings(
             input_ids=text['input_ids'],
             token_type_ids=text['token_type_ids'],
@@ -497,8 +500,8 @@ print(device)
 
 training_args = TrainingArguments(
     output_dir=output_dir,
-    per_device_train_batch_size=8,
-    per_device_eval_batch_size=32,
+    per_device_train_batch_size=64,
+    per_device_eval_batch_size=64,
     evaluation_strategy="epoch",
     save_strategy="epoch",
     num_train_epochs=3,
