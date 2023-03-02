@@ -189,10 +189,8 @@ def train_val_test_split(metadata):
     #Val = 20% of lesions
     #Test = 20% of lesions
     df = pd.read_csv(metadata)
-    train_les, eval_les = train_test_split(df['lesion_id'].drop_duplicates(), test_size=0.4, random_state=0)
-    val_les, test_les = train_test_split(eval_les, test_size=0.5, random_state=0)
-    
-    return {'train': train_les, 'val': val_les, 'test': test_les}
+    train_les = df['lesion_id'].drop_duplicates()
+    return {'test': train_les}
 
 
 
@@ -203,7 +201,7 @@ splits = train_val_test_split(metadata)
 
 #create datasets
 print("Setting up datasets")
-image_datasets = {x: MyDataset(data_dir, metadata, data_transforms[x], sorted(list(splits[x]))) for x in ['train','val','test']}
+image_datasets = {x: MyDataset(data_dir, metadata, data_transforms[x], sorted(list(splits[x]))) for x in ['test']}
 
 #print("Setting up dataloaders")
 #dataloaders = {x: torch.utils.data.DataLoader(image_datasets[x], batch_size=8,
@@ -211,8 +209,8 @@ image_datasets = {x: MyDataset(data_dir, metadata, data_transforms[x], sorted(li
 #              for x in ['train', 'val']}
 
 
-dataset_sizes = {x: len(image_datasets[x]) for x in ['train', 'val', 'test']}
-class_names = image_datasets['train'].classes
+dataset_sizes = {x: len(image_datasets[x]) for x in ['test']}
+class_names = image_datasets['test'].classes
 num_classes = len(class_names)
 print(dataset_sizes)
 print(class_names)
@@ -342,8 +340,8 @@ print("TRAINING")
 trainer = Trainer(
     model=model,
     args=training_args,
-    train_dataset=image_datasets['train'],
-    eval_dataset=image_datasets['val'],
+    train_dataset=image_datasets['test'],
+    eval_dataset=image_datasets['test'],
     tokenizer=image_processor,
     compute_metrics=compute_metrics,
     data_collator=collate_fn,
@@ -359,7 +357,7 @@ trainer.save_state()
 """
 
 print('predicting')
-predictions = trainer.predict(image_datasets['val'])
+predictions = trainer.predict(image_datasets['test'])
 preds = np.argmax(predictions.predictions, axis=-1)
 trues = predictions.label_ids
 from sklearn.metrics import recall_score, precision_score
