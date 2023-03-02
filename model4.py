@@ -53,7 +53,7 @@ data_dir = '../HAM10000_images'
 metadata = 'HAM10000_metadata.csv'
 
 #Set directory to output model
-output_dir = "../model3_final"
+output_dir = "../model4_final"
 
 
 #Dataset creation for train, val, test
@@ -501,7 +501,7 @@ training_args = TrainingArguments(
     per_device_eval_batch_size=64,
     evaluation_strategy="epoch",
     save_strategy="epoch",
-    num_train_epochs=1,
+    num_train_epochs=2,
     lr_scheduler_type="linear",
     logging_steps=1,
     save_total_limit=2,
@@ -554,7 +554,7 @@ trainer.log_metrics("train", train_results.metrics)
 trainer.save_metrics("train", train_results.metrics)
 trainer.save_state()
 
-metrics = trainer.evaluate(image_datasets["val"])
+metrics = trainer.evaluate(image_datasets["test"])
 trainer.log_metrics("test", metrics)
 
 
