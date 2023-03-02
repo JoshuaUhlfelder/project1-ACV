@@ -513,7 +513,6 @@ training_args = TrainingArguments(
     load_best_model_at_end=False,
     dataloader_num_workers=0,  
     gradient_accumulation_steps=1,
-    warmup_steps=(5)
 )
 
 
@@ -533,7 +532,7 @@ train_dataset = image_datasets["train"]
 eval_dataset = image_datasets["val"]
 
 
-metric = evaluate.load("accuracy")
+metric = evaluate.load("recall")
 def compute_metrics(p):
     return metric.compute(predictions=np.argmax(p.predictions, axis=1), references=p.label_ids)
 
