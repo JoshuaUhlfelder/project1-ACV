@@ -142,6 +142,7 @@ def train_val_test_split(metadata):
     df = pd.read_csv(metadata)
     train_les, eval_les = train_test_split(df['lesion_id'].drop_duplicates(), test_size=0.4, random_state=0)
     val_les, test_les = train_test_split(eval_les, test_size=0.5, random_state=0)
+    test_les, trash = train_test_split(test_les, test_size=0.9, random_state=0)
     
     return {'train': train_les, 'val': val_les, 'test': test_les}
 
@@ -273,9 +274,9 @@ if __name__ == "__main__":
     image_datasets = {x: MyDataset(data_dir, metadata, data_transforms[x], sorted(list(splits[x]))) for x in ['train','val','test']}
     
     print("Setting up dataloaders")
-    dataloaders = {x: torch.utils.data.DataLoader(image_datasets[x], batch_size=8,
+    dataloaders = {x: torch.utils.data.DataLoader(image_datasets[x], batch_size=3000,
                                                  shuffle=True, num_workers=0, collate_fn=collate_fn)
-                  for x in ['train', 'val']}
+                  for x in ['train', 'val', 'test']}
     
     
     dataset_sizes = {x: len(image_datasets[x]) for x in ['train', 'val', 'test']}
@@ -311,12 +312,15 @@ if __name__ == "__main__":
     
     model.load_state_dict(torch.load('../final_modelResNet_NotNorm'))
     
+    for inputs, labels in tqdm(dataloaders['test']):
+        inputs = inputs.to(device)
+        labels = labels.to(device)
+        
     
-    batch = image_datasets['test']
-    batch = list(filter(lambda x: x is not None, batch))
-    images = torch.stack([b[0] for b in batch])
-    
-    model(images.to(device))
+        out = model(inputs)
+        
+        print(out)
+        print(labels)
 
 
 
