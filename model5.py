@@ -1,14 +1,5 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""
-Created on Mon Feb 27 01:19:44 2023
-
-@author: joshuauhlfelder
-"""
-
-#!/usr/bin/env python
-# coding: utf-8
-
 
 import torch
 import torch.nn as nn
@@ -45,9 +36,25 @@ import evaluate
 
 cudnn.benchmark = True
 plt.ion()
+"""
+********
+model5.py
+********
+
+Training a BERT model on training data
+Use demographic data and images to classify
+**USES BERT TEXT TOKENIZER WITH STRING OF
+**DEMOGRAPHIC DATA
+
+Set directory to image files, a metadata file organized
+like the metadata file fom the HAM10000 dataset, and
+and output directory for model files.
+
+Function will output an evaluation of the validation data
 
 
-        
+SET PARAMS BELOW
+"""         
 #Set metadata file and image data directory
 data_dir = '../HAM10000_images'
 metadata = 'HAM10000_metadata.csv'
@@ -455,7 +462,7 @@ print("Set learning rate to:", training_args.learning_rate)
 train_dataset = image_datasets["train"]
 eval_dataset = image_datasets["val"]
 
-
+#Make accuracy the eval metric
 metric = evaluate.load("accuracy")
 def compute_metrics(p):
     return metric.compute(predictions=np.argmax(p.predictions, axis=1), references=p.label_ids)

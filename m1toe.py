@@ -32,7 +32,7 @@ Set directory to image files, a metadata file organized
 like the metadata file fom the HAM10000 dataset, and
 and output directory for model files.
 
-Function will output 
+Function will output predictions
 
 
 SET PARAMS BELOW

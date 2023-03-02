@@ -1,7 +1,5 @@
 #!/usr/bin/env python
 # coding: utf-8
-
-
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -22,6 +20,24 @@ from tqdm import tqdm
 
 cudnn.benchmark = True
 plt.ion()
+"""
+********
+model1.py
+********
+
+Trains a ResNet50 on the training data
+
+Set directory to image files and a metadata file organized
+like the metadata file fom the HAM10000 dataset
+
+Function will output an evaluation of the validation data
+
+
+SET PARAMS BELOW
+"""
+#Set metadata file and image data directory
+data_dir = '../HAM10000_images'
+metadata = 'HAM10000_metadata.csv'
 
 
 #Dataset creation for train, val, test
@@ -48,9 +64,7 @@ class MyDataset(torch.utils.data.Dataset):
         # Assign a unique label index to each class name
         self.class_labels = {name: idx for idx, name in enumerate(self.classes)}
         
-        # Next, let's collect all image files underneath each class name directory 
-        # as a single list of image files.  We need to correspond the class label
-        # to each image.
+        # Collect images, info, and labels into lists
         image_files, labels, info = self.get_image_filenames_with_labels(
             images_dir,
             self.class_labels,
@@ -58,11 +72,11 @@ class MyDataset(torch.utils.data.Dataset):
             self.lesion_ids,
         )
         
-        # This is a trick to avoid memory leaks over very large datasets.
+        # Convert to np arrays
         self.image_files = np.array(image_files)
         self.labels = np.array(labels).astype("int")
         
-        # How many total images do we need to iterate in this entire dataset?
+        # Size of datasets
         self.num_images = len(self.image_files)
         
     def __len__(self):
@@ -109,7 +123,7 @@ class MyDataset(torch.utils.data.Dataset):
             image = Image.open(self.image_files[idx]).convert('RGB')
             label = self.labels[idx]
             
-            #Will used this in future models
+            #Will use this in future models
             #info = self.info[idx]
             
             # Apply the image transform
@@ -118,19 +132,6 @@ class MyDataset(torch.utils.data.Dataset):
             return image, label
         except Exception as exc:  # <--- i know this isn't the best exception handling
             return None
-
-
-
-def collate_fn(batch):
-    # Filter failed images first
-    batch = list(filter(lambda x: x is not None, batch))
-    
-    # Now collate into mini-batches
-    images = torch.stack([b[0] for b in batch])
-    labels = torch.LongTensor([b[1] for b in batch])
-    
-    return images, labels
-
 
 # Returns the lesion IDs for each split
 def train_val_test_split(metadata):
@@ -146,18 +147,73 @@ def train_val_test_split(metadata):
     return {'train': train_les, 'val': val_les, 'test': test_les}
 
 
-def imshow(inp, title=None):
-    """Imshow for Tensor."""
-    inp = inp.numpy().transpose((1, 2, 0))
-    mean = np.array([0.485, 0.456, 0.406])
-    std = np.array([0.229, 0.224, 0.225])
-    inp = std * inp + mean
-    inp = np.clip(inp, 0, 1)
-    plt.imshow(inp)
-    if title is not None:
-        plt.title(title)
-    plt.pause(0.001)  # pause a bit so that plots are updated
 
+
+
+#Resize, flip, convert, normalize images for training
+data_transforms = {
+    'train': transforms.Compose([
+        transforms.RandomResizedCrop(size=224,scale=(0.1, 1.0)),
+        #Flip image vertically and horizontally with prob 0.5
+        transforms.RandomHorizontalFlip(),
+        transforms.RandomVerticalFlip(),
+        transforms.ToTensor(),
+        transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+    ]),
+    #Resize and crop images for validation
+    'val': transforms.Compose([
+        transforms.Resize(256),
+        transforms.CenterCrop(224),
+        transforms.ToTensor(),
+        transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+    ]),
+    #Resize and crop images for testing (locked away)
+    'test': transforms.Compose([
+        transforms.Resize(256),
+        transforms.CenterCrop(224),
+        transforms.ToTensor(),
+        transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+    ]),
+}
+
+#Split lesions into sets
+splits = train_val_test_split(metadata)
+
+#create datasets
+print("Setting up datasets")
+image_datasets = {x: MyDataset(data_dir, metadata, data_transforms[x], sorted(list(splits[x]))) for x in ['train','val','test']}
+
+
+def collate_fn(batch):
+    # Filter failed images first
+    batch = list(filter(lambda x: x is not None, batch))
+    
+    # Now collate into mini-batches
+    images = torch.stack([b[0] for b in batch])
+    labels = torch.LongTensor([b[1] for b in batch])
+    
+    return images, labels
+
+
+
+#creat dataloaders - set batch size here
+print("Setting up dataloaders")
+dataloaders = {x: torch.utils.data.DataLoader(image_datasets[x], batch_size=8,
+                                             shuffle=True, num_workers=0, collate_fn=collate_fn)
+              for x in ['train', 'val']}
+
+
+#Print our classes
+dataset_sizes = {x: len(image_datasets[x]) for x in ['train', 'val', 'test']}
+class_names = image_datasets['train'].classes
+print(dataset_sizes)
+print(class_names)
+
+# to correct device
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+print(device)
+
+  
 
 def train_model(model, criterion, optimizer, scheduler, num_epochs=10):
     since = time.time()
@@ -226,134 +282,44 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=10):
     model.load_state_dict(best_model_wts)
     return model
 
+# Load a pretrained model and reset final fully connected layer for this particular classification problem.
+
+model_ft = models.resnet50(weights="IMAGENET1K_V1")
+#model_ft = models.vgg19_bn(weights="IMAGENET1K_V1")
 
 
 
-if __name__ == "__main__":
+num_ftrs = model_ft.fc.in_features
 
-    
+# Add linear classification layer
+model_ft.fc = nn.Linear(num_ftrs, 7)
 
-    #Resize, flip, convert, normalize images for training
-    data_transforms = {
-        'train': transforms.Compose([
-            transforms.RandomResizedCrop(size=224,scale=(0.1, 1.0)),
-            #Flip image vertically and horizontally with prob 0.5
-            transforms.RandomHorizontalFlip(),
-            transforms.RandomVerticalFlip(),
-            transforms.ToTensor(),
-            transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
-        ]),
-        #Resize and crop images for validation
-        'val': transforms.Compose([
-            transforms.Resize(256),
-            transforms.CenterCrop(224),
-            transforms.ToTensor(),
-            transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
-        ]),
-        #Resize and crop images for testing (locked away)
-        'test': transforms.Compose([
-            transforms.Resize(256),
-            transforms.CenterCrop(224),
-            transforms.ToTensor(),
-            transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
-        ]),
-    }
-    
-        
-        
-    #Set metadata file and image data directory
-    data_dir = '../HAM10000_images'
-    metadata = 'HAM10000_metadata.csv'
-    
-    
-    #Split lesions into sets
-    splits = train_val_test_split(metadata)
-    
-    #create datasets
-    print("Setting up datasets")
-    image_datasets = {x: MyDataset(data_dir, metadata, data_transforms[x], sorted(list(splits[x]))) for x in ['train','val','test']}
-    
-    print("Setting up dataloaders")
-    dataloaders = {x: torch.utils.data.DataLoader(image_datasets[x], batch_size=8,
-                                                 shuffle=True, num_workers=0, collate_fn=collate_fn)
-                  for x in ['train', 'val']}
-    
-    
-    dataset_sizes = {x: len(image_datasets[x]) for x in ['train', 'val', 'test']}
-    class_names = image_datasets['train'].classes
-    
-    print(dataset_sizes)
-    print(class_names)
-    
-    
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    print(device)
+# Move the model to the correct device
+model_ft = model_ft.to(device)
 
-      
-    # Get a batch of training data
-    inputs, classes = next(iter(dataloaders['train']))
-    print(inputs.shape)
-    print(classes)
-    
-    # Make a grid from batch
-    out = torchvision.utils.make_grid(inputs)
-    print(out.shape)
-    
-    imshow(out, title=[class_names[x] for x in classes])
-    
-    # Get a batch of val data
-    inputs, classes = next(iter(dataloaders['val']))
-    print(inputs.shape)
-    print(classes)
-    
-    # Make a grid from batch
-    out = torchvision.utils.make_grid(inputs)
-    print(out.shape)
-    
-    imshow(out, title=[class_names[x] for x in classes])
-    
-    
-    # Load a pretrained model and reset final fully connected layer for this particular classification problem.
-    
-    model_ft = models.resnet50(weights="IMAGENET1K_V1")
-    #model_ft = models.vgg19_bn(weights="IMAGENET1K_V1")
-    
-    #for param in model_ft.parameters():
-    #    param.requires_grad = False
-    
-    num_ftrs = model_ft.fc.in_features
-    
-    # Here the size of each output sample is set to 2.
-    # Alternatively, it can be generalized to nn.Linear(num_ftrs, len(class_names)).
-    model_ft.fc = nn.Linear(num_ftrs, 7)
-    
-    # Move the model to the correct device (when we have access to a GPU)
-    model_ft = model_ft.to(device)
-    
-    
-    # Let's set our loss function
-    criterion = nn.CrossEntropyLoss()
-    
-    # Setup the optimizer to update the model parameters
-    
-    optimizer_ft = optim.Adam(model_ft.parameters(), lr=0.00005)
-    
-    
-    # Decay LR by a factor of 0.2 every 3 epochs
-    scheduler1 = lr_scheduler.LinearLR(optimizer_ft, start_factor=0.05, total_iters=4)
-    scheduler2 = lr_scheduler.ExponentialLR(optimizer_ft, gamma=0.8)
-    scheduler = lr_scheduler.SequentialLR(optimizer_ft, 
-                                          schedulers=[scheduler1, scheduler2], milestones=[3])
-    
-    
-    
-    # Train and evaluate.  
-    model_ft = train_model(model_ft, criterion, optimizer_ft, scheduler,
-                           num_epochs=15)
-    
-    
-    
-    torch.save(model_ft.state_dict(), '../final_modelResNet_NotNorm')
-    
-    
-    
+
+# Using cross-entropy
+criterion = nn.CrossEntropyLoss()
+
+# Setup the optimizer to update the model parameters
+optimizer_ft = optim.Adam(model_ft.parameters(), lr=0.00005)
+
+
+# Decay LR by a factor of 0.8 after a linear warmup
+scheduler1 = lr_scheduler.LinearLR(optimizer_ft, start_factor=0.05, total_iters=4)
+scheduler2 = lr_scheduler.ExponentialLR(optimizer_ft, gamma=0.8)
+scheduler = lr_scheduler.SequentialLR(optimizer_ft, 
+                                      schedulers=[scheduler1, scheduler2], milestones=[3])
+
+
+
+# Train and evaluate.  
+model_ft = train_model(model_ft, criterion, optimizer_ft, scheduler,
+                       num_epochs=15)
+
+
+
+torch.save(model_ft.state_dict(), '../model1_final')
+
+
+

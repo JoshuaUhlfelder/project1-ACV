@@ -1,15 +1,5 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-Created on Mon Feb 27 01:19:44 2023
-
-@author: joshuauhlfelder
-"""
-
 #!/usr/bin/env python
 # coding: utf-8
-
-
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -41,12 +31,24 @@ from transformers import (
 )
 from transformers.modeling_outputs import SequenceClassifierOutput
 import evaluate
-
 cudnn.benchmark = True
 plt.ion()
+"""
+********
+model2.py
+********
+
+Training a ViT on training data
+
+Set directory to image files, a metadata file organized
+like the metadata file fom the HAM10000 dataset, and
+and output directory for model files.
+
+Function will output an evaluation of the validation data
 
 
-        
+SET PARAMS BELOW
+"""    
 #Set metadata file and image data directory
 data_dir = '../HAM10000_images'
 metadata = 'HAM10000_metadata.csv'
@@ -79,9 +81,7 @@ class MyDataset(torch.utils.data.Dataset):
         # Assign a unique label index to each class name
         self.class_labels = {name: idx for idx, name in enumerate(self.classes)}
         
-        # Next, let's collect all image files underneath each class name directory 
-        # as a single list of image files.  We need to correspond the class label
-        # to each image.
+        # Collect images, labels, and info into lists
         image_files, labels, info = self.get_image_filenames_with_labels(
             images_dir,
             self.class_labels,
@@ -89,11 +89,11 @@ class MyDataset(torch.utils.data.Dataset):
             self.lesion_ids,
         )
         
-        # This is a trick to avoid memory leaks over very large datasets.
+        # Make np array to avoid mem leaks
         self.image_files = np.array(image_files)
         self.labels = np.array(labels).astype("int")
         
-        # How many total images do we need to iterate in this entire dataset?
+        # Size of dataset
         self.num_images = len(self.image_files)
         
     def __len__(self):
@@ -110,7 +110,7 @@ class MyDataset(torch.utils.data.Dataset):
         
         return sorted(list(class_names)) #convert set to list and return
     
-    #The images are organized cleanly, all ending with .jpg, and with uniform naming structure
+    #The images are organized , all ending with .jpg, and with uniform naming structure
     def get_image_filenames_with_labels(self, images_dir, class_labels, metadata, lesion_ids):
         image_files = []
         labels = []
@@ -204,12 +204,7 @@ splits = train_val_test_split(metadata)
 print("Setting up datasets")
 image_datasets = {x: MyDataset(data_dir, metadata, data_transforms[x], sorted(list(splits[x]))) for x in ['train','val','test']}
 
-#print("Setting up dataloaders")
-#dataloaders = {x: torch.utils.data.DataLoader(image_datasets[x], batch_size=8,
-#                                             shuffle=True, num_workers=0, collate_fn=collate_fn)
-#              for x in ['train', 'val']}
-
-
+#Get class and dataset info
 dataset_sizes = {x: len(image_datasets[x]) for x in ['train', 'val', 'test']}
 class_names = image_datasets['train'].classes
 num_classes = len(class_names)
@@ -249,11 +244,6 @@ def get_model_info(model):
     return num_params, size_all_mb
 
 
-    
-    
-
-
-
 # Create a lookup table to go between label name and index
 id2label = {}
 label2id = {}
@@ -265,23 +255,9 @@ for idx, label in enumerate(class_names):
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 print(device)
 
-"""   
-# Get a batch of training data
-inputs, classes = next(iter(dataloaders['train']))
-print(inputs.shape)
-print(classes)
-
-# Make a grid from batch
-out = torchvision.utils.make_grid(inputs)
-print(out.shape)
-
-imshow(out, title=[class_names[x] for x in classes])
-"""
 
 
 # Load a pretrained model and reset final fully connected layer for this particular classification problem.
-
-
 image_processor = AutoImageProcessor.from_pretrained('google/vit-base-patch16-224')
 
 model = ViTForImageClassification.from_pretrained(
@@ -302,22 +278,7 @@ num_params, size_all_mb = get_model_info(model)
 print("Number of trainable params:", num_params)
 print('Model size: {:.3f}MB'.format(size_all_mb))
 
-"""
-#Freeze model
-for p in model.parameters():
-    p.requires_grad = False
-
-# Turn back on the classifier weights
-for p in model.classifier.parameters():
-    p.requires_grad=True
-"""
-
-# Ok now how many trainable parameters do we have?
-num_params, size_all_mb = get_model_info(model)
-print("Number of trainable params:", num_params)
-print('Model size: {:.3f}MB'.format(size_all_mb))
-
-
+#Training args - modify to train
 training_args = TrainingArguments(
     output_dir=output_dir,
     per_device_train_batch_size=64,
@@ -335,6 +296,7 @@ training_args = TrainingArguments(
     #gradient_accumulation_steps=8,
 )
 
+#Set lr, calculate real lr based on batch size
 base_learning_rate = 1e-3
 total_train_batch_size = (
     training_args.train_batch_size * training_args.gradient_accumulation_steps * training_args.world_size
@@ -343,6 +305,7 @@ total_train_batch_size = (
 training_args.learning_rate = base_learning_rate * total_train_batch_size / 256
 print("Set learning rate to:", training_args.learning_rate)
     
+#Load accuracy as metric
 metric = evaluate.load("accuracy")
 def compute_metrics(p):
     return metric.compute(predictions=np.argmax(p.predictions, axis=1), references=p.label_ids)

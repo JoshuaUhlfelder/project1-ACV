@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -22,6 +21,25 @@ from tqdm import tqdm
 
 cudnn.benchmark = True
 plt.ion()
+"""
+********
+m1test.py
+********
+
+Testing dataset on final model1
+
+Set directory to image files, a metadata file organized
+like the metadata file fom the HAM10000 dataset, and
+and output directory for model files.
+
+Function will output an evaluation of the test data
+
+
+SET PARAMS BELOW
+"""
+#Set metadata file and image data directory
+data_dir = '../HAM10000_images'
+metadata = 'HAM10000_metadata.csv'
 
 
 #Dataset creation for train, val, test
@@ -58,11 +76,11 @@ class MyDataset(torch.utils.data.Dataset):
             self.lesion_ids,
         )
         
-        # This is a trick to avoid memory leaks over very large datasets.
+        # Set as np.array to avoid mem leaks
         self.image_files = np.array(image_files)
         self.labels = np.array(labels).astype("int")
         
-        # How many total images do we need to iterate in this entire dataset?
+        # Get dataset size
         self.num_images = len(self.image_files)
         
     def __len__(self):
@@ -79,7 +97,7 @@ class MyDataset(torch.utils.data.Dataset):
         
         return sorted(list(class_names)) #convert set to list and return
     
-    #The images are organized cleanly, all ending with .jpg, and with uniform naming structure
+    #The images are organized , all ending with .jpg, and with uniform naming structure
     def get_image_filenames_with_labels(self, images_dir, class_labels, metadata, lesion_ids):
         image_files = []
         labels = []
@@ -109,23 +127,22 @@ class MyDataset(torch.utils.data.Dataset):
             image = Image.open(self.image_files[idx]).convert('RGB')
             label = self.labels[idx]
             
-            #Will used this in future models
+            #Will use this in future models
             #info = self.info[idx]
             
             # Apply the image transform
             image = self.image_transform(image)
             
             return image, label
-        except Exception as exc:  # <--- i know this isn't the best exception handling
+        except Exception as exc:
             return None
 
 
-
 def collate_fn(batch):
-    # Filter failed images first
+    # Filter bad images
     batch = list(filter(lambda x: x is not None, batch))
     
-    # Now collate into mini-batches
+    # Cllate into mini-batches
     images = torch.stack([b[0] for b in batch])
     labels = torch.LongTensor([b[1] for b in batch])
     
@@ -147,19 +164,56 @@ def train_val_test_split(metadata):
     return {'train': train_les, 'val': val_les, 'test': test_les}
 
 
-def imshow(inp, title=None):
-    """Imshow for Tensor."""
-    inp = inp.numpy().transpose((1, 2, 0))
-    mean = np.array([0.485, 0.456, 0.406])
-    std = np.array([0.229, 0.224, 0.225])
-    inp = std * inp + mean
-    inp = np.clip(inp, 0, 1)
-    plt.imshow(inp)
-    if title is not None:
-        plt.title(title)
-    plt.pause(0.001)  # pause a bit so that plots are updated
+
+#Resize, flip, convert, normalize images for training
+data_transforms = {
+    'train': transforms.Compose([
+        transforms.RandomResizedCrop(size=224,scale=(0.1, 1.0)),
+        #Flip image vertically and horizontally with prob 0.5
+        transforms.RandomHorizontalFlip(),
+        transforms.RandomVerticalFlip(),
+        transforms.ToTensor(),
+        transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+    ]),
+    #Resize and crop images for validation
+    'val': transforms.Compose([
+        transforms.Resize(256),
+        transforms.CenterCrop(224),
+        transforms.ToTensor(),
+        transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+    ]),
+    #Resize and crop images for testing (locked away)
+    'test': transforms.Compose([
+        transforms.Resize(256),
+        transforms.CenterCrop(224),
+        transforms.ToTensor(),
+        transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+    ]),
+}
 
 
+#Split lesions into sets
+splits = train_val_test_split(metadata)
+
+#create datasets
+print("Setting up datasets")
+image_datasets = {x: MyDataset(data_dir, metadata, data_transforms[x], sorted(list(splits[x]))) for x in ['train','val','test']}
+
+#Set up dataloaders - adjust batch size here
+print("Setting up dataloaders")
+dataloaders = {x: torch.utils.data.DataLoader(image_datasets[x], batch_size=10,
+                                             shuffle=True, num_workers=0, collate_fn=collate_fn)
+              for x in ['train', 'val', 'test']}
+
+
+dataset_sizes = {x: len(image_datasets[x]) for x in ['train', 'val', 'test']}
+class_names = image_datasets['train'].classes
+
+print(dataset_sizes)
+print(class_names)
+
+
+#Function to train model - from Austin Reiter
 def train_model(model, criterion, optimizer, scheduler, num_epochs=10):
     since = time.time()
 
@@ -229,106 +283,51 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=10):
 
 
 
-if __name__ == "__main__":
 
-    
+#Keep on cpu - runs plenty fast
+device = torch.device("cpu")
+print(device)
 
-    #Resize, flip, convert, normalize images for training
-    data_transforms = {
-        'train': transforms.Compose([
-            transforms.RandomResizedCrop(size=224,scale=(0.1, 1.0)),
-            #Flip image vertically and horizontally with prob 0.5
-            transforms.RandomHorizontalFlip(),
-            transforms.RandomVerticalFlip(),
-            transforms.ToTensor(),
-            transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
-        ]),
-        #Resize and crop images for validation
-        'val': transforms.Compose([
-            transforms.Resize(256),
-            transforms.CenterCrop(224),
-            transforms.ToTensor(),
-            transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
-        ]),
-        #Resize and crop images for testing (locked away)
-        'test': transforms.Compose([
-            transforms.Resize(256),
-            transforms.CenterCrop(224),
-            transforms.ToTensor(),
-            transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
-        ]),
-    }
-    
-        
-        
-    #Set metadata file and image data directory
-    data_dir = '../HAM10000_images'
-    metadata = 'HAM10000_metadata.csv'
-    
-    
-    #Split lesions into sets
-    splits = train_val_test_split(metadata)
-    
-    #create datasets
-    print("Setting up datasets")
-    image_datasets = {x: MyDataset(data_dir, metadata, data_transforms[x], sorted(list(splits[x]))) for x in ['train','val','test']}
-    
-    print("Setting up dataloaders")
-    dataloaders = {x: torch.utils.data.DataLoader(image_datasets[x], batch_size=10,
-                                                 shuffle=True, num_workers=0, collate_fn=collate_fn)
-                  for x in ['train', 'val', 'test']}
-    
-    
-    dataset_sizes = {x: len(image_datasets[x]) for x in ['train', 'val', 'test']}
-    class_names = image_datasets['train'].classes
-    
-    print(dataset_sizes)
-    print(class_names)
-    
-    
-    device = torch.device("cpu")
-    print(device)
+  
+# Get a batch of training data
+inputs, classes = next(iter(dataloaders['train']))
+print(inputs.shape)
+print(classes)
 
-      
-    # Get a batch of training data
-    inputs, classes = next(iter(dataloaders['train']))
-    print(inputs.shape)
-    print(classes)
-    
  
+
+# Load a pretrained model and reset final fully connected layer for this particular classification problem.
+model = models.resnet50()# we do not specify pretrained - just loads generic
+num_ftrs = model.fc.in_features
+
+# Add linear layer of 7 to classify
+model.fc = nn.Linear(num_ftrs, 7)
+
+# Move the model to the correct device
+model = model.to(device)
+
+#Load in best model from directory
+model.load_state_dict(torch.load('../model1_final'))
+
+#For every item in a batch, get the predicted label to compute metrics
+all_labels = torch.tensor([])
+all_preds = torch.tensor([])
+
+for inputs, labels in tqdm(dataloaders['test']):
+    inputs = inputs.to(device)
+    labels = labels.to(device)
     
-    # Load a pretrained model and reset final fully connected layer for this particular classification problem.
+    all_labels = torch.cat((all_labels, labels))
+    out = model(inputs)
+    pre = torch.argmax(out, dim=1)
+    all_preds = torch.cat((all_preds, pre))
+
+#Convert list of predictions and ground truth to lists for sklearn
+trues = all_labels.tolist()
+preds = all_preds.tolist()
     
-    model = models.resnet50()# we do not specify pretrained=True, i.e. do not load default weights
-    num_ftrs = model.fc.in_features
-    
-    # Here the size of each output sample is set to 2.
-    # Alternatively, it can be generalized to nn.Linear(num_ftrs, len(class_names)).
-    model.fc = nn.Linear(num_ftrs, 7)
-    
-    # Move the model to the correct device (when we have access to a GPU)
-    model = model.to(device)
-    
-    
-    model.load_state_dict(torch.load('../model1_final'))
-    
-    all_labels = torch.tensor([])
-    all_preds = torch.tensor([])
-    
-    for inputs, labels in tqdm(dataloaders['test']):
-        inputs = inputs.to(device)
-        labels = labels.to(device)
-        
-        all_labels = torch.cat((all_labels, labels))
-        out = model(inputs)
-        pre = torch.argmax(out, dim=1)
-        all_preds = torch.cat((all_preds, pre))
-    
-    trues = all_labels.tolist()
-    preds = all_preds.tolist()
-    
-    
-from sklearn.metrics import recall_score, precision_score, accuracy_score, confusion_matrix
+#Compute precision, accuracy, etc.
+from sklearn.metrics import recall_score, precision_score, accuracy_score
 
 print(accuracy_score(trues, preds))
 print(recall_score(trues, preds, average=None))

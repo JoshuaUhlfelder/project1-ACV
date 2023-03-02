@@ -1,15 +1,5 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""
-Created on Mon Feb 27 01:19:44 2023
-
-@author: joshuauhlfelder
-"""
-
-#!/usr/bin/env python
-# coding: utf-8
-
-
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -46,8 +36,25 @@ import evaluate
 cudnn.benchmark = True
 plt.ion()
 
+"""
+********
+model4.py
+********
 
-        
+Training a BERT model on training data
+Use demographic data and images to classify
+**THIS IS A BINARY CLASSIFIER FOR THE CLASS 'nv'
+**VERSUS OTHER CLASSES
+
+Set directory to image files, a metadata file organized
+like the metadata file fom the HAM10000 dataset, and
+and output directory for model files.
+
+Function will output an evaluation of the validation data
+
+
+SET PARAMS BELOW
+"""        
 #Set metadata file and image data directory
 data_dir = '../HAM10000_images'
 metadata = 'HAM10000_metadata.csv'
@@ -103,7 +110,7 @@ class MyDataset(torch.utils.data.Dataset):
         
     def get_class_names(self, metadata):
         #Return all classes as list of strings by iterating through metadata
-        
+        #We only have two classes - its either nv or something else
         return ['nv','other'] #convert set to list and return
     
     #The images are organized cleanly, all ending with .jpg, and with uniform naming structure
@@ -203,12 +210,6 @@ splits = train_val_test_split(metadata)
 print("Setting up datasets")
 image_datasets = {x: MyDataset(data_dir, metadata, data_transforms[x], sorted(list(splits[x]))) for x in ['train','val','test']}
 
-#print("Setting up dataloaders")
-#dataloaders = {x: torch.utils.data.DataLoader(image_datasets[x], batch_size=8,
-#                                             shuffle=True, num_workers=0, collate_fn=collate_fn)
-#              for x in ['train', 'val']}
-
-
 dataset_sizes = {x: len(image_datasets[x]) for x in ['train', 'val', 'test']}
 class_names = image_datasets['train'].classes
 num_classes = len(class_names)
@@ -216,7 +217,8 @@ print(dataset_sizes)
 print(class_names)
 
     
-
+#Custom tokenizer - returns demographic data
+#as a tensor directionary along with its masks
 class MyTokenizer():
     """
     This class needs the directory where all the images are stored,
@@ -289,10 +291,10 @@ class MyTokenizer():
         types = torch.tensor(types)
         mask = torch.tensor(mask)
             
-        
+        #Return dictionary - must adjust forward() to get items
         return {'input_ids': ids, 'token_type_ids': types, 'attention_mask': mask}
         
-
+#Tokenize image and text
 image_preprocessor = AutoImageProcessor.from_pretrained("microsoft/resnet-50")
 text_tokenizer = MyTokenizer(metadata)
 
@@ -315,7 +317,7 @@ def collate_fn(batch):
     }
 
 
-
+#Check that model inputs are correct
 dataloader = torch.utils.data.DataLoader(
     image_datasets['train'], 
     batch_size=2,
@@ -323,18 +325,10 @@ dataloader = torch.utils.data.DataLoader(
     num_workers=0, 
     collate_fn=collate_fn,
 )
-
-
-
 for batch in dataloader:
     break
-
-
 batch["labels"]
-
-
 batch["text"]['attention_mask']
-
 batch["images"]["pixel_values"].shape
 
 
@@ -343,10 +337,8 @@ batch["images"]["pixel_values"].shape
 
 #Multimodal Bert
 """
-From Austin Reiter -
- ---huggingface_examples.py---
-- with some modifications to fit data sizes and 
-addition of custom resnet50
+From Austin Reiter ---huggingface_examples.py---
+ with some modifications to get values from text tokenizer
 """
 class MultimodalBertClassifier(nn.Module):
     def __init__(
@@ -451,8 +443,7 @@ class MultimodalBertClassifier(nn.Module):
 
 
 
-
-# Quick check if the forward inferencing works
+#Creating a binary classifier
 model = MultimodalBertClassifier(num_labels=2)
 
 
@@ -528,7 +519,7 @@ print("Set learning rate to:", training_args.learning_rate)
 train_dataset = image_datasets["train"]
 eval_dataset = image_datasets["val"]
 
-
+#Load in accuracy as eval. metric
 metric = evaluate.load("accuracy")
 def compute_metrics(p):
     return metric.compute(predictions=np.argmax(p.predictions, axis=1), references=p.label_ids)

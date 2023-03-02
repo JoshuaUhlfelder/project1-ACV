@@ -1,7 +1,5 @@
 #!/usr/bin/env python
 # coding: utf-8
-
-
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -38,20 +36,20 @@ cudnn.benchmark = True
 plt.ion()
 """
 ********
-m2toe.py
+m2test.py
 ********
 
-Single (or multi) data point classification on model 2
+Testing dataset on final model2
 
 Set directory to image files, a metadata file organized
 like the metadata file fom the HAM10000 dataset, and
 and output directory for model files.
 
-Function will output 
+Function will output an evaluation of the test data
 
 
 SET PARAMS BELOW
-""" 
+"""
 #Set metadata file and image data directory
 data_dir = '../HAM10000_images'
 metadata = 'HAM10000_metadata.csv'
@@ -91,11 +89,11 @@ class MyDataset(torch.utils.data.Dataset):
             self.lesion_ids,
         )
         
-        # This is a trick to avoid memory leaks over very large datasets.
+        # TSet tp np arrays to avoid mem leaks
         self.image_files = np.array(image_files)
         self.labels = np.array(labels).astype("int")
         
-        # How many total images do we need to iterate in this entire dataset?
+        # Size of dataset
         self.num_images = len(self.image_files)
         
     def __len__(self):
@@ -206,20 +204,12 @@ splits = train_val_test_split(metadata)
 print("Setting up datasets")
 image_datasets = {x: MyDataset(data_dir, metadata, data_transforms[x], sorted(list(splits[x]))) for x in ['train','val','test']}
 
-#print("Setting up dataloaders")
-#dataloaders = {x: torch.utils.data.DataLoader(image_datasets[x], batch_size=8,
-#                                             shuffle=True, num_workers=0, collate_fn=collate_fn)
-#              for x in ['train', 'val']}
-
 
 dataset_sizes = {x: len(image_datasets[x]) for x in ['train', 'val', 'test']}
 class_names = image_datasets['train'].classes
 num_classes = len(class_names)
 print(dataset_sizes)
 print(class_names)
-
-    
-
 
 
 def collate_fn(batch):
@@ -263,7 +253,7 @@ for idx, label in enumerate(class_names):
     id2label[str(idx)] = label
     label2id[label] = str(idx)
 
-
+#et to correct device
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 print(device)
 
@@ -282,22 +272,7 @@ num_params, size_all_mb = get_model_info(model)
 print("Number of trainable params:", num_params)
 print('Model size: {:.3f}MB'.format(size_all_mb))
 
-"""
-#Freeze model
-for p in model.parameters():
-    p.requires_grad = False
-
-# Turn back on the classifier weights
-for p in model.classifier.parameters():
-    p.requires_grad=True
-"""
-
-# Ok now how many trainable parameters do we have?
-num_params, size_all_mb = get_model_info(model)
-print("Number of trainable params:", num_params)
-print('Model size: {:.3f}MB'.format(size_all_mb))
-
-
+# Training arguments 
 training_args = TrainingArguments(
     output_dir=output_dir,
     per_device_train_batch_size=64,
@@ -315,6 +290,7 @@ training_args = TrainingArguments(
     #gradient_accumulation_steps=8,
 )
 
+#Learning rate calculation
 base_learning_rate = 1e-3
 total_train_batch_size = (
     training_args.train_batch_size * training_args.gradient_accumulation_steps * training_args.world_size
@@ -323,11 +299,12 @@ total_train_batch_size = (
 training_args.learning_rate = base_learning_rate * total_train_batch_size / 256
 print("Set learning rate to:", training_args.learning_rate)
     
+#Use accuracy as evaluation metric
 metric = evaluate.load("accuracy")
 def compute_metrics(p):
     return metric.compute(predictions=np.argmax(p.predictions, axis=1), references=p.label_ids)
     
-print("TRAINING")
+#Instantiate trainer with data
 trainer = Trainer(
     model=model,
     args=training_args,
@@ -338,21 +315,15 @@ trainer = Trainer(
     data_collator=collate_fn,
 )
 
-# Train
-"""
-train_results = trainer.train()
-trainer.save_model()
-trainer.log_metrics("train", train_results.metrics)
-trainer.save_metrics("train", train_results.metrics)
-trainer.save_state()
-"""
 
+#Make predictions and compute metrics
 print('predicting')
 predictions = trainer.predict(image_datasets['test'])
 preds = np.argmax(predictions.predictions, axis=-1)
 trues = predictions.label_ids
 from sklearn.metrics import recall_score, precision_score, accuracy_score, confusion_matrix
 
+#Print out scores
 print(accuracy_score(trues, preds))
 print(recall_score(trues, preds, average=None))
 print(precision_score(trues, preds, average=None))

@@ -1,15 +1,5 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-Created on Mon Feb 27 01:19:44 2023
-
-@author: joshuauhlfelder
-"""
-
 #!/usr/bin/env python
 # coding: utf-8
-
-
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -45,9 +35,23 @@ import evaluate
 
 cudnn.benchmark = True
 plt.ion()
+"""
+********
+model3.py
+********
+
+Training a BERT model on training data
+Use demographic data and images to classify
+
+Set directory to image files, a metadata file organized
+like the metadata file fom the HAM10000 dataset, and
+and output directory for model files.
+
+Function will output an evaluation of the validation data
 
 
-        
+SET PARAMS BELOW
+"""         
 #Set metadata file and image data directory
 data_dir = '../HAM10000_images'
 metadata = 'HAM10000_metadata.csv'
@@ -80,9 +84,7 @@ class MyDataset(torch.utils.data.Dataset):
         # Assign a unique label index to each class name
         self.class_labels = {name: idx for idx, name in enumerate(self.classes)}
         
-        # Next, let's collect all image files underneath each class name directory 
-        # as a single list of image files.  We need to correspond the class label
-        # to each image.
+        # Collect images, labels, and info as lists
         image_files, labels, info = self.get_image_filenames_with_labels(
             images_dir,
             self.class_labels,
@@ -90,12 +92,12 @@ class MyDataset(torch.utils.data.Dataset):
             self.lesion_ids,
         )
         
-        # This is a trick to avoid memory leaks over very large datasets.
+        # Make each list np array to avoid memory leaks
         self.image_files = np.array(image_files)
         self.labels = np.array(labels).astype("int")
         self.info = np.array(info).astype("object")
         
-        # How many total images do we need to iterate in this entire dataset?
+        # Dataset size
         self.num_images = len(self.image_files)
         
     def __len__(self):
@@ -181,7 +183,6 @@ data_transforms = {
     
 
 
-
 # Returns the lesion IDs for each split
 def train_val_test_split(metadata):
     
@@ -198,18 +199,12 @@ def train_val_test_split(metadata):
 
 
 
-
 #Split lesions into sets
 splits = train_val_test_split(metadata)
 
 #create datasets
 print("Setting up datasets")
 image_datasets = {x: MyDataset(data_dir, metadata, data_transforms[x], sorted(list(splits[x]))) for x in ['train','val','test']}
-
-#print("Setting up dataloaders")
-#dataloaders = {x: torch.utils.data.DataLoader(image_datasets[x], batch_size=8,
-#                                             shuffle=True, num_workers=0, collate_fn=collate_fn)
-#              for x in ['train', 'val']}
 
 
 dataset_sizes = {x: len(image_datasets[x]) for x in ['train', 'val', 'test']}
@@ -219,12 +214,12 @@ print(dataset_sizes)
 print(class_names)
 
     
-
+#Custom tokenizer
 class MyTokenizer():
     """
-    This class needs the directory where all the images are stored,
-    a metadata file, the transform operations for each set,
-    and a list of lesions in each set
+    This class takes in the metadata and reads through every
+    localization to create a lookup table
+    Tokenizes stream of demographic data
     """
     def __init__(
         self,
@@ -247,8 +242,9 @@ class MyTokenizer():
         for idx, label in enumerate(l_names):
             localizations[label] = idx
         
-        return localizations #convert set to list and return
+        return localizations #Return the local. lookup table
     
+    #Called to get tensor with set of demographic data in batch
     def tokenize(self, input_tuples):
         length = len(input_tuples)
         ids = []
@@ -292,10 +288,12 @@ class MyTokenizer():
         types = torch.tensor(types)
         mask = torch.tensor(mask)
             
-        
+        #Return a dict with all items of a typical tokenizer
+        #Must change forward function to get items - as not an object
         return {'input_ids': ids, 'token_type_ids': types, 'attention_mask': mask}
         
-
+#Create image preprocessor for image data
+#Create instance of custom tokenizer
 image_preprocessor = AutoImageProcessor.from_pretrained("microsoft/resnet-50")
 text_tokenizer = MyTokenizer(metadata)
 
@@ -318,7 +316,7 @@ def collate_fn(batch):
     }
 
 
-
+#Test that data looks good
 dataloader = torch.utils.data.DataLoader(
     image_datasets['train'], 
     batch_size=2,
@@ -326,18 +324,10 @@ dataloader = torch.utils.data.DataLoader(
     num_workers=0, 
     collate_fn=collate_fn,
 )
-
-
-
 for batch in dataloader:
     break
-
-
 batch["labels"]
-
-
 batch["text"]['attention_mask']
-
 batch["images"]["pixel_values"].shape
 
 
@@ -346,10 +336,9 @@ batch["images"]["pixel_values"].shape
 
 #Multimodal Bert
 """
-From Austin Reiter -
- ---huggingface_examples.py---
-- with some modifications to fit data sizes and 
-addition of custom resnet50
+From Austin Reiter ---huggingface_examples.py---
+- with  modifications to fit data sizes and 
+text tokenizer 
 """
 class MultimodalBertClassifier(nn.Module):
     def __init__(
@@ -475,16 +464,12 @@ def get_model_info(model):
     size_all_mb = (param_size + buffer_size) / 1024**2
     
     return num_params, size_all_mb
-    
-
 
 # Print model info
 num_params, size_all_mb = get_model_info(model)
 
 print("Number of trainable params:", num_params)
 print('Model size: {:.3f}MB'.format(size_all_mb))
-
-
 
 
 # Create a lookup table to go between label name and index
@@ -494,7 +479,7 @@ for idx, label in enumerate(class_names):
     id2label[str(idx)] = label
     label2id[label] = str(idx)
 
-
+# to correct device
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 print(device)
 
@@ -527,11 +512,11 @@ total_train_batch_size = (
 training_args.learning_rate = base_learning_rate * total_train_batch_size / 256
 print("Set learning rate to:", training_args.learning_rate)
 
-
+#Rename sets of data
 train_dataset = image_datasets["train"]
 eval_dataset = image_datasets["val"]
 
-
+#Make accuracy the evaluation metric
 metric = evaluate.load("accuracy")
 def compute_metrics(p):
     return metric.compute(predictions=np.argmax(p.predictions, axis=1), references=p.label_ids)
@@ -560,7 +545,7 @@ trainer.save_state()
 metrics = trainer.evaluate(image_datasets["val"])
 trainer.log_metrics("test", metrics)
 
-
+#Get predictions of test data to compute metrics
 print('predicting')
 predictions = trainer.predict(image_datasets['test'])
 preds = np.argmax(predictions.predictions, axis=-1)
