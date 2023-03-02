@@ -263,6 +263,7 @@ class MyTokenizer():
             
             
             #Set sex to label
+            new_sex = 0
             #0 = male, 1 = female, #-1 = unknown
             if sex == 'male':
                 new_sex = 0
