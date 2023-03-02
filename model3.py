@@ -505,7 +505,7 @@ training_args = TrainingArguments(
     save_strategy="epoch",
     num_train_epochs=3,
     lr_scheduler_type="cosine",
-    logging_steps=10,
+    logging_steps=5,
     save_total_limit=2,
     remove_unused_columns=False,
     push_to_hub=False,
@@ -527,6 +527,10 @@ training_args.learning_rate = base_learning_rate * total_train_batch_size / 256
 print("Set learning rate to:", training_args.learning_rate)
 
 
+train_dataset = image_datasets["train"]
+eval_dataset = image_datasets["val"]
+
+
 metric = evaluate.load("accuracy")
 def compute_metrics(p):
     return metric.compute(predictions=np.argmax(p.predictions, axis=1), references=p.label_ids)
@@ -537,8 +541,8 @@ def compute_metrics(p):
 trainer = Trainer(
     model=model,
     args=training_args,
-    train_dataset=image_datasets["train"],
-    eval_dataset=image_datasets["val"],
+    train_dataset=train_dataset,
+    eval_dataset=eval_dataset,
     compute_metrics=compute_metrics,
     data_collator=collate_fn,
 )
