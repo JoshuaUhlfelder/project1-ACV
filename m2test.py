@@ -83,9 +83,7 @@ class MyDataset(torch.utils.data.Dataset):
         # Assign a unique label index to each class name
         self.class_labels = {name: idx for idx, name in enumerate(self.classes)}
         
-        # Next, let's collect all image files underneath each class name directory 
-        # as a single list of image files.  We need to correspond the class label
-        # to each image.
+        # Collect files, labels, and info into one directory
         image_files, labels, info = self.get_image_filenames_with_labels(
             images_dir,
             self.class_labels,

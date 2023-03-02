@@ -229,7 +229,7 @@ model.fc = nn.Linear(num_ftrs, 7)
 model = model.to(device)
 
 #Load in best model so far - set directory to save
-model.load_state_dict(torch.load('../final_model1'))
+model.load_state_dict(torch.load('../model1_final'))
 
 all_labels = torch.tensor([])
 all_preds = torch.tensor([])

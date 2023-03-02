@@ -310,7 +310,7 @@ if __name__ == "__main__":
     model = model.to(device)
     
     
-    model.load_state_dict(torch.load('../final_modelResNet_NotNorm'))
+    model.load_state_dict(torch.load('../model1_final'))
     
     all_labels = torch.tensor([])
     all_preds = torch.tensor([])
