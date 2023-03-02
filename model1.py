@@ -262,7 +262,7 @@ if __name__ == "__main__":
     #Resize, flip, convert, normalize images for training
     data_transforms = {
         'train': transforms.Compose([
-            transforms.RandomResizedCrop(size=224,scale=(0.3, 1.0)),
+            transforms.RandomResizedCrop(size=224,scale=(0.1, 1.0)),
             #Flip image vertically and horizontally with prob 0.5
             transforms.RandomHorizontalFlip(),
             transforms.RandomVerticalFlip(),
@@ -300,7 +300,7 @@ if __name__ == "__main__":
     image_datasets = {x: MyDataset(data_dir, metadata, data_transforms[x], sorted(list(splits[x]))) for x in ['train','val','test']}
     
     print("Setting up dataloaders")
-    dataloaders = {x: torch.utils.data.DataLoader(image_datasets[x], batch_size=8,
+    dataloaders = {x: torch.utils.data.DataLoader(image_datasets[x], batch_size=64,
                                                  shuffle=True, num_workers=0, collate_fn=collate_fn)
                   for x in ['train', 'val']}
     
@@ -362,7 +362,7 @@ if __name__ == "__main__":
     
     # Setup the optimizer to update the model parameters
     
-    optimizer_ft = optim.Adam(model_ft.parameters(), lr=0.00004)
+    optimizer_ft = optim.Adam(model_ft.parameters(), lr=0.00005)
     
     
     # Decay LR by a factor of 0.2 every 3 epochs
