@@ -321,8 +321,9 @@ if __name__ == "__main__":
         
         all_labels = torch.cat((all_labels, labels))
         out = model(inputs)
-        print("\n\nHI", out.shape)
-        all_preds = torch.cat((all_preds, out))
+        pre = torch.argmax(out, dim=0)
+        print(pre.shape)
+        all_preds = torch.cat((all_preds, pre))
     
     trues = all_labels.tolist()
     preds = all_preds.tolist()
