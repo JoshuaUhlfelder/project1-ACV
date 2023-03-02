@@ -504,7 +504,7 @@ training_args = TrainingArguments(
     per_device_eval_batch_size=64,
     evaluation_strategy="epoch",
     save_strategy="epoch",
-    num_train_epochs=3,
+    num_train_epochs=1,
     lr_scheduler_type="linear",
     logging_steps=5,
     save_total_limit=2,
@@ -551,7 +551,7 @@ trainer = Trainer(
 
 
 # Train
-train_results = trainer.train(resume_from_checkpoint=True)
+train_results = trainer.train()#resume_from_checkpoint=True)
 trainer.save_model()
 trainer.log_metrics("train", train_results.metrics)
 trainer.save_metrics("train", train_results.metrics)
