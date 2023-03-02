@@ -299,13 +299,24 @@ if __name__ == "__main__":
     # Load a pretrained model and reset final fully connected layer for this particular classification problem.
     
     model = models.resnet50()# we do not specify pretrained=True, i.e. do not load default weights
+    num_ftrs = model.fc.in_features
+    
+    # Here the size of each output sample is set to 2.
+    # Alternatively, it can be generalized to nn.Linear(num_ftrs, len(class_names)).
+    model.fc = nn.Linear(num_ftrs, 7)
+    
+    # Move the model to the correct device (when we have access to a GPU)
+    model = model.to(device)
+    
+    
     model.load_state_dict(torch.load('../final_modelResNet_NotNorm'))
+    
     
     batch = image_datasets['test']
     batch = list(filter(lambda x: x is not None, batch))
     images = torch.stack([b[0] for b in batch])
     
-    model(images)
+    model(images.to(device))
 
 
 
