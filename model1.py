@@ -262,7 +262,7 @@ if __name__ == "__main__":
     #Resize, flip, convert, normalize images for training
     data_transforms = {
         'train': transforms.Compose([
-            transforms.RandomResizedCrop(size=224,scale=(0.5, 1.0)),
+            transforms.RandomResizedCrop(size=224,scale=(0.3, 1.0)),
             #Flip image vertically and horizontally with prob 0.5
             transforms.RandomHorizontalFlip(),
             transforms.RandomVerticalFlip(),
