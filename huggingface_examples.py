@@ -61,7 +61,7 @@ data_transforms = {
     ]),
 }
 
-
+"""
 # In[ ]:
 
 
@@ -213,7 +213,7 @@ total_train_batch_size = (
 
 training_args.learning_rate = base_learning_rate * total_train_batch_size / 256
 print("Set learning rate to:", training_args.learning_rate)
-
+"""
 
 # In[ ]:
 
@@ -222,7 +222,7 @@ print("Set learning rate to:", training_args.learning_rate)
 metric = evaluate.load("accuracy")
 def compute_metrics(p):
     return metric.compute(predictions=np.argmax(p.predictions, axis=1), references=p.label_ids)
-
+"""
 
 # In[ ]:
 
@@ -287,7 +287,7 @@ model = SwinForImageClassification.from_pretrained(
     ignore_mismatched_sizes=True,
 )
 
-
+"""
 
 
 
