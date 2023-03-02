@@ -359,7 +359,7 @@ trainer.save_state()
 """
 
 print('predicting')
-predictions = trainer.predict(image_datasets['val'])
+predictions = trainer.predict(image_datasets['test'])
 preds = np.argmax(predictions.predictions, axis=-1)
 trues = predictions.label_ids
 from sklearn.metrics import recall_score, precision_score
