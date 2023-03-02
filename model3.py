@@ -260,7 +260,6 @@ class MyTokenizer():
             age = input_tuple[0]
             sex = input_tuple[1]
             loc = input_tuple[2]
-            print(input_tuple)
             
             
             #Set sex to label
@@ -384,7 +383,6 @@ class MultimodalBertClassifier(nn.Module):
     ):
         # Encode the images.  The last hidden state (which is what we want)
         # has a shape of: [batch_size, 2048, 7, 7].
-        print("foreward")
         image_outputs = self.resnet(**images)
         
         # Permute the dimensions and project to hidden dims for BERT.  Be sure
