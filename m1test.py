@@ -142,7 +142,7 @@ def train_val_test_split(metadata):
     df = pd.read_csv(metadata)
     train_les, eval_les = train_test_split(df['lesion_id'].drop_duplicates(), test_size=0.4, random_state=0)
     val_les, test_les = train_test_split(eval_les, test_size=0.5, random_state=0)
-    test_les, trash = train_test_split(test_les, test_size=0.9, random_state=0)
+    #test_les, trash = train_test_split(test_les, test_size=0.9, random_state=0)
     
     return {'train': train_les, 'val': val_les, 'test': test_les}
 
@@ -274,7 +274,7 @@ if __name__ == "__main__":
     image_datasets = {x: MyDataset(data_dir, metadata, data_transforms[x], sorted(list(splits[x]))) for x in ['train','val','test']}
     
     print("Setting up dataloaders")
-    dataloaders = {x: torch.utils.data.DataLoader(image_datasets[x], batch_size=3000,
+    dataloaders = {x: torch.utils.data.DataLoader(image_datasets[x], batch_size=10,
                                                  shuffle=True, num_workers=0, collate_fn=collate_fn)
                   for x in ['train', 'val', 'test']}
     
@@ -312,15 +312,27 @@ if __name__ == "__main__":
     
     model.load_state_dict(torch.load('../final_modelResNet_NotNorm'))
     
+    all_labels = torch.tensor([])
+    all_preds = torch.tensor([])
+    
     for inputs, labels in tqdm(dataloaders['test']):
         inputs = inputs.to(device)
         labels = labels.to(device)
         
-    
+        all_labels = torch.cat((all_labels, labels))
         out = model(inputs)
-        
-        print(out)
-        print(labels)
+        print(out.shape)
+        all_preds = torch.cat(all_preds, out)
+    
+    trues = all_labels.tolist()
+    preds = all_preds.tolist()
+    
+    
+from sklearn.metrics import recall_score, precision_score, accuracy_score, confusion_matrix
+
+print(accuracy_score(trues, preds))
+print(recall_score(trues, preds, average=None))
+print(precision_score(trues, preds, average=None))
 
 
 

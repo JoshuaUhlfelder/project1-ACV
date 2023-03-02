@@ -351,7 +351,7 @@ if __name__ == "__main__":
     model_ft = train_model(model_ft, criterion, optimizer_ft, scheduler,
                            num_epochs=15)
     
-
+    
     
     torch.save(model_ft.state_dict(), '../final_modelResNet_NotNorm')
     
