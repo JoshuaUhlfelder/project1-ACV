@@ -359,16 +359,12 @@ trainer.save_state()
 """
 
 print('predicting')
-predictions = trainer.predict(image_datasets['test'])
+predictions = trainer.predict(image_datasets['val'])
 preds = np.argmax(predictions.predictions, axis=-1)
 trues = predictions.label_ids
-from sklearn.metrics import recall_score
+from sklearn.metrics import recall_score, precision_score
+
 
 print(recall_score(trues, preds, average=None))
-
-
-
-#Evaluate on test set
-metrics = trainer.evaluate(image_datasets['test'])
-trainer.log_metrics("eval", metrics)
+print(precision_score(trues, preds, average=None))
 
