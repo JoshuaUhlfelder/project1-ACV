@@ -156,7 +156,7 @@ class MyDataset(torch.utils.data.Dataset):
 #Resize, flip, convert, normalize images for training
 data_transforms = {
     'train': transforms.Compose([
-        transforms.RandomResizedCrop(size=224,scale=(0.3, 1.0)),
+        transforms.RandomResizedCrop(size=224,scale=(0.35, 1.0)),
         #Flip image vertically and horizontally with prob 0.5
         transforms.RandomHorizontalFlip(),
         transforms.RandomVerticalFlip(),
@@ -532,9 +532,10 @@ train_dataset = image_datasets["train"]
 eval_dataset = image_datasets["val"]
 
 
-metric = evaluate.load("accuracy")
+metric = evaluate.load("recall")
 def compute_metrics(p):
-    return metric.compute(predictions=np.argmax(p.predictions, axis=1), references=p.label_ids)
+    print(np.argmax(p.predictions))
+    return metric.compute(predictions=np.argmax(p.predictions), references=p.label_ids)
 
 
 
