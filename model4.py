@@ -502,8 +502,8 @@ training_args = TrainingArguments(
     evaluation_strategy="epoch",
     save_strategy="epoch",
     num_train_epochs=2,
-    lr_scheduler_type="linear",
-    logging_steps=1,
+    lr_scheduler_type="cosine",
+    logging_steps=5,
     save_total_limit=2,
     remove_unused_columns=False,
     push_to_hub=False,
@@ -516,7 +516,7 @@ training_args = TrainingArguments(
 
 
 # Compute absolute learning rate
-base_learning_rate = 1e-4
+base_learning_rate = 1e-3
 total_train_batch_size = (
     training_args.train_batch_size * training_args.gradient_accumulation_steps * training_args.world_size
 )
