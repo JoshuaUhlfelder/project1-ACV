@@ -504,15 +504,15 @@ training_args = TrainingArguments(
     per_device_eval_batch_size=64,
     evaluation_strategy="epoch",
     save_strategy="epoch",
-    num_train_epochs=1,
+    num_train_epochs=3,
     lr_scheduler_type="linear",
-    logging_steps=5,
+    logging_steps=1,
     save_total_limit=2,
     remove_unused_columns=False,
     push_to_hub=False,
     load_best_model_at_end=True,
     dataloader_num_workers=0,  
-    gradient_accumulation_steps=8,
+    gradient_accumulation_steps=1,
 )
 
 
@@ -551,7 +551,7 @@ trainer = Trainer(
 
 
 # Train
-train_results = trainer.train()#resume_from_checkpoint=True)
+train_results = trainer.train()
 trainer.save_model()
 trainer.log_metrics("train", train_results.metrics)
 trainer.save_metrics("train", train_results.metrics)
