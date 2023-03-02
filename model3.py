@@ -501,10 +501,10 @@ print(device)
 training_args = TrainingArguments(
     output_dir=output_dir,
     per_device_train_batch_size=64,
-    per_device_eval_batch_size=64,
+    per_device_eval_batch_size=16,
     evaluation_strategy="epoch",
     save_strategy="no",
-    num_train_epochs=10,
+    num_train_epochs=3,
     lr_scheduler_type="cosine",
     logging_steps=8,
     save_total_limit=2,
@@ -520,7 +520,7 @@ training_args = TrainingArguments(
 
 
 # Compute absolute learning rate
-base_learning_rate = 2e-3
+base_learning_rate = 1e-2
 total_train_batch_size = (
     training_args.train_batch_size * training_args.gradient_accumulation_steps * training_args.world_size
 )
