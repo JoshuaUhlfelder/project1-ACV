@@ -1,12 +1,3 @@
-
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-Created on Mon Feb 27 01:19:44 2023
-
-@author: joshuauhlfelder
-"""
-
 #!/usr/bin/env python
 # coding: utf-8
 
@@ -45,13 +36,25 @@ import evaluate
 
 cudnn.benchmark = True
 plt.ion()
+"""
+********
+m2toe.py
+********
+
+Single (or multi) data point classification on model 2
+
+Set directory to image files, a metadata file organized
+like the metadata file fom the HAM10000 dataset, and
+and output directory for model files.
+
+Function will output 
 
 
-        
+SET PARAMS BELOW
+""" 
 #Set metadata file and image data directory
 data_dir = '../HAM10000_images'
 metadata = 'HAM10000_metadata.csv'
-
 #Set directory to output model
 output_dir = "../model2_finaltest"
 
@@ -266,18 +269,6 @@ for idx, label in enumerate(class_names):
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 print(device)
 
-"""   
-# Get a batch of training data
-inputs, classes = next(iter(dataloaders['train']))
-print(inputs.shape)
-print(classes)
-
-# Make a grid from batch
-out = torchvision.utils.make_grid(inputs)
-print(out.shape)
-
-imshow(out, title=[class_names[x] for x in classes])
-"""
 
 
 # Load a pretrained model and reset final fully connected layer for this particular classification problem.

@@ -1,16 +1,5 @@
-
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-Created on Mon Feb 27 01:19:44 2023
-
-@author: joshuauhlfelder
-"""
-
 #!/usr/bin/env python
 # coding: utf-8
-
-
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -47,13 +36,26 @@ cudnn.benchmark = True
 plt.ion()
 
 
-        
-#Set metadata file and image data directory
+"""
+********
+m2toe.py
+********
+
+Single (or multi) data point classification on model 2
+
+Set directory to image files, a metadata file organized
+like the metadata file fom the HAM10000 dataset, and
+and output directory for model files.
+
+Function will output 
+
+
+SET PARAMS BELOW
+"""
 data_dir = '../mytoe'
 metadata = 'toe_metadata.csv'
-
-#Set directory to output model
 output_dir = "../model2_toe"
+
 
 
 #Dataset creation for train, val, test
@@ -64,7 +66,8 @@ class MyDataset(torch.utils.data.Dataset):
     and a list of lesions in each set
     """
     def __init__(
-        #Needs directory of images, metadata file, and transformations
+        #Needs directory of images, metadata file, and transformations, 
+        #and the lesion ids
         self,
         images_dir,
         metadata,
@@ -80,9 +83,8 @@ class MyDataset(torch.utils.data.Dataset):
         # Assign a unique label index to each class name
         self.class_labels = {name: idx for idx, name in enumerate(self.classes)}
         
-        # Next, let's collect all image files underneath each class name directory 
-        # as a single list of image files.  We need to correspond the class label
-        # to each image.
+        # Collects the labels, images, and other information (age, sex) into 
+        # a single list
         image_files, labels, info = self.get_image_filenames_with_labels(
             images_dir,
             self.class_labels,
@@ -90,11 +92,11 @@ class MyDataset(torch.utils.data.Dataset):
             self.lesion_ids,
         )
         
-        # This is a trick to avoid memory leaks over very large datasets.
+        # Avoid memory leaks - put into np arrays
         self.image_files = np.array(image_files)
         self.labels = np.array(labels).astype("int")
         
-        # How many total images do we need to iterate in this entire dataset?
+        # Set size of dataset
         self.num_images = len(self.image_files)
         
     def __len__(self):
@@ -102,8 +104,9 @@ class MyDataset(torch.utils.data.Dataset):
         
     def get_class_names(self, metadata):
         #Return all classes as list of strings by iterating through metadata
+        #Takes from the original dataset
         class_names = set()
-        with open(metadata, newline='') as csvfile:
+        with open("./HAM10000_metadata.csv", newline='') as csvfile:
             reader = csv.reader(csvfile, delimiter=',', quotechar='|')
             next(reader)
             for row in reader:
@@ -111,7 +114,7 @@ class MyDataset(torch.utils.data.Dataset):
         
         return sorted(list(class_names)) #convert set to list and return
     
-    #The images are organized cleanly, all ending with .jpg, and with uniform naming structure
+    #The images are organized , all ending with .jpg, and with uniform naming structure
     def get_image_filenames_with_labels(self, images_dir, class_labels, metadata, lesion_ids):
         image_files = []
         labels = []
@@ -141,16 +144,17 @@ class MyDataset(torch.utils.data.Dataset):
             image = Image.open(self.image_files[idx]).convert('RGB')
             label = self.labels[idx]
             
-            #Will used this in future models
+            #Will use this in future models
             #info = self.info[idx]
             
             # Apply the image transform
             image = self.image_transform(image)
             
             return image, label
-        #Bad images return None
-        except Exception as exc:  
+        except Exception as exc:  # <--- i know this isn't the best exception handling
             return None
+
+
 
 #Resize, flip, convert, normalize images for training
 data_transforms = {
@@ -196,17 +200,12 @@ def train_val_test_split(metadata):
 
 
 
-#Split lesions into sets
+#SPut data into test df
 splits = train_val_test_split(metadata)
 
-#create datasets
+#create test dataset from input
 print("Setting up datasets")
 image_datasets = {x: MyDataset(data_dir, metadata, data_transforms[x], sorted(list(splits[x]))) for x in ['test']}
-
-#print("Setting up dataloaders")
-#dataloaders = {x: torch.utils.data.DataLoader(image_datasets[x], batch_size=8,
-#                                             shuffle=True, num_workers=0, collate_fn=collate_fn)
-#              for x in ['train', 'val']}
 
 
 dataset_sizes = {x: len(image_datasets[x]) for x in ['test']}
@@ -215,10 +214,7 @@ num_classes = len(class_names)
 print(dataset_sizes)
 print(class_names)
 
-    
-
-
-
+  
 def collate_fn(batch):
     # Filter failed images first
     #batch = list(filter(lambda x: x is not None, batch))
@@ -230,6 +226,7 @@ def collate_fn(batch):
     }
 
 
+# From Austin Reiter
 # A useful function to see the size and # of params of a model
 def get_model_info(model):
     # Compute number of trainable parameters in the model
@@ -247,12 +244,6 @@ def get_model_info(model):
     
     return num_params, size_all_mb
 
-
-    
-    
-
-
-
 # Create a lookup table to go between label name and index
 id2label = {}
 label2id = {}
@@ -264,22 +255,10 @@ for idx, label in enumerate(class_names):
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 print(device)
 
-"""   
-# Get a batch of training data
-inputs, classes = next(iter(dataloaders['train']))
-print(inputs.shape)
-print(classes)
-
-# Make a grid from batch
-out = torchvision.utils.make_grid(inputs)
-print(out.shape)
-
-imshow(out, title=[class_names[x] for x in classes])
-"""
 
 
-# Load a pretrained model and reset final fully connected layer for this particular classification problem.
-
+# Load the best model from the directory below into 'model'
+#Takes the image processor from 21k ImageNet
 image_processor = AutoImageProcessor.from_pretrained('google/vit-base-patch16-224')
 model = ViTForImageClassification.from_pretrained("../model2_final")
 
@@ -287,26 +266,13 @@ model = ViTForImageClassification.from_pretrained("../model2_final")
 print(model.classifier)
 print("Num labels:", model.num_labels)
 print("\nModel config:", model.config)
+
+# Print out model size
 num_params, size_all_mb = get_model_info(model)
 print("Number of trainable params:", num_params)
 print('Model size: {:.3f}MB'.format(size_all_mb))
 
-"""
-#Freeze model
-for p in model.parameters():
-    p.requires_grad = False
-
-# Turn back on the classifier weights
-for p in model.classifier.parameters():
-    p.requires_grad=True
-"""
-
-# Ok now how many trainable parameters do we have?
-num_params, size_all_mb = get_model_info(model)
-print("Number of trainable params:", num_params)
-print('Model size: {:.3f}MB'.format(size_all_mb))
-
-
+#Set args for training
 training_args = TrainingArguments(
     output_dir=output_dir,
     per_device_train_batch_size=1,
@@ -324,6 +290,7 @@ training_args = TrainingArguments(
     #gradient_accumulation_steps=8,
 )
 
+#Modify lr
 base_learning_rate = 1e-3
 total_train_batch_size = (
     training_args.train_batch_size * training_args.gradient_accumulation_steps * training_args.world_size
@@ -332,11 +299,11 @@ total_train_batch_size = (
 training_args.learning_rate = base_learning_rate * total_train_batch_size / 256
 print("Set learning rate to:", training_args.learning_rate)
     
+#Use accuracy as metric for evaluation
 metric = evaluate.load("accuracy")
 def compute_metrics(p):
     return metric.compute(predictions=np.argmax(p.predictions, axis=1), references=p.label_ids)
     
-print("TRAINING")
 trainer = Trainer(
     model=model,
     args=training_args,
@@ -347,14 +314,6 @@ trainer = Trainer(
     data_collator=collate_fn,
 )
 
-# Train
-"""
-train_results = trainer.train()
-trainer.save_model()
-trainer.log_metrics("train", train_results.metrics)
-trainer.save_metrics("train", train_results.metrics)
-trainer.save_state()
-"""
 
 print('predicting')
 predictions = trainer.predict(image_datasets['test'])
@@ -362,10 +321,11 @@ preds = np.argmax(predictions.predictions, axis=-1)
 trues = predictions.label_ids
 from sklearn.metrics import recall_score, precision_score
 
+#print predictions
 print(preds)
 print(trues)
 
-
+#Get recall and precision
 print(recall_score(trues, preds, average=None))
 print(precision_score(trues, preds, average=None))
 

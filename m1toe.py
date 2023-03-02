@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -19,19 +18,34 @@ from PIL import Image
 import csv
 from sklearn.model_selection import train_test_split
 from tqdm import tqdm
-
 cudnn.benchmark = True
 plt.ion()
 
+"""
+********
+m1toe.py
+********
 
+Single (or multi) data point classification on model 1
+
+Set directory to image files, a metadata file organized
+like the metadata file fom the HAM10000 dataset, and
+and output directory for model files.
+
+Function will output 
+
+
+SET PARAMS BELOW
+"""
 data_dir = '../mytoe'
 metadata = 'toe_metadata.csv'
-
-#Set directory to output model
 output_dir = "../model1_toe"
 
 
-#Dataset creation for train, val, test
+
+
+
+#Put datapoints into dataset
 class MyDataset(torch.utils.data.Dataset):
     """
     This class needs the directory where all the images are stored,
@@ -39,7 +53,8 @@ class MyDataset(torch.utils.data.Dataset):
     and a list of lesions in each set
     """
     def __init__(
-        #Needs directory of images, metadata file, and transformations
+        #Needs directory of images, metadata file, and transformations, 
+        #and the lesion ids
         self,
         images_dir,
         metadata,
@@ -55,9 +70,8 @@ class MyDataset(torch.utils.data.Dataset):
         # Assign a unique label index to each class name
         self.class_labels = {name: idx for idx, name in enumerate(self.classes)}
         
-        # Next, let's collect all image files underneath each class name directory 
-        # as a single list of image files.  We need to correspond the class label
-        # to each image.
+        # Collects the labels, images, and other information (age, sex) into 
+        # a single list
         image_files, labels, info = self.get_image_filenames_with_labels(
             images_dir,
             self.class_labels,
@@ -65,11 +79,11 @@ class MyDataset(torch.utils.data.Dataset):
             self.lesion_ids,
         )
         
-        # This is a trick to avoid memory leaks over very large datasets.
+        # Avoid memory leaks - put into np arrays
         self.image_files = np.array(image_files)
         self.labels = np.array(labels).astype("int")
         
-        # How many total images do we need to iterate in this entire dataset?
+        # Set size of dataset
         self.num_images = len(self.image_files)
         
     def __len__(self):
@@ -77,8 +91,9 @@ class MyDataset(torch.utils.data.Dataset):
         
     def get_class_names(self, metadata):
         #Return all classes as list of strings by iterating through metadata
+        #Takes from the original dataset
         class_names = set()
-        with open(metadata, newline='') as csvfile:
+        with open("./HAM10000_metadata.csv", newline='') as csvfile:
             reader = csv.reader(csvfile, delimiter=',', quotechar='|')
             next(reader)
             for row in reader:
@@ -86,7 +101,7 @@ class MyDataset(torch.utils.data.Dataset):
         
         return sorted(list(class_names)) #convert set to list and return
     
-    #The images are organized cleanly, all ending with .jpg, and with uniform naming structure
+    #The images are organized , all ending with .jpg, and with uniform naming structure
     def get_image_filenames_with_labels(self, images_dir, class_labels, metadata, lesion_ids):
         image_files = []
         labels = []
@@ -116,232 +131,132 @@ class MyDataset(torch.utils.data.Dataset):
             image = Image.open(self.image_files[idx]).convert('RGB')
             label = self.labels[idx]
             
-            #Will used this in future models
+            #Will use this in future models
             #info = self.info[idx]
             
             # Apply the image transform
             image = self.image_transform(image)
             
             return image, label
-        except Exception as exc:  # <--- i know this isn't the best exception handling
+        #Return none for bad images
+        except Exception as exc:
             return None
+
+
+# Returns the lesion IDs for each split
+def train_val_test_split(metadata):
+    
+    #Read in metadata and separate lesions (not images) into test group
+    df = pd.read_csv(metadata)
+    train_les = df['lesion_id'].drop_duplicates()
+    return {'test': train_les}
+
+
+
+#Resize, flip, convert, normalize images for training
+data_transforms = {
+    'train': transforms.Compose([
+        transforms.RandomResizedCrop(size=224,scale=(0.1, 1.0)),
+        #Flip image vertically and horizontally with prob 0.5
+        transforms.RandomHorizontalFlip(),
+        transforms.RandomVerticalFlip(),
+        transforms.ToTensor(),
+        transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+    ]),
+    #Resize and crop images for validation
+    'val': transforms.Compose([
+        transforms.Resize(256),
+        transforms.CenterCrop(224),
+        transforms.ToTensor(),
+        transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+    ]),
+    #Resize and crop images for testing (locked away)
+    'test': transforms.Compose([
+        transforms.Resize(256),
+        transforms.CenterCrop(224),
+        transforms.ToTensor(),
+        transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+    ]),
+}
+
+    
+
+#Put everything into a test df
+splits = train_val_test_split(metadata)
+
+
+#create datasets from organized data
+print("Setting up datasets")
+image_datasets = {x: MyDataset(data_dir, metadata, data_transforms[x], sorted(list(splits[x]))) for x in ['test']}
+
 
 
 
 def collate_fn(batch):
-    # Filter failed images first
+    # Filter failed images
     batch = list(filter(lambda x: x is not None, batch))
     
-    # Now collate into mini-batches
+    # Collate batches
     images = torch.stack([b[0] for b in batch])
     labels = torch.LongTensor([b[1] for b in batch])
     
     return images, labels
 
 
-# Returns the lesion IDs for each split
-# Returns the lesion IDs for each split
-def train_val_test_split(metadata):
-    
-    #Read in metadata and separate lesions (not images) into training, test, and validation groups
-    #Train = 60% of lesions
-    #Val = 20% of lesions
-    #Test = 20% of lesions
-    df = pd.read_csv(metadata)
-    train_les = df['lesion_id'].drop_duplicates()
-    return {'test': train_les}
-
-
-def imshow(inp, title=None):
-    """Imshow for Tensor."""
-    inp = inp.numpy().transpose((1, 2, 0))
-    mean = np.array([0.485, 0.456, 0.406])
-    std = np.array([0.229, 0.224, 0.225])
-    inp = std * inp + mean
-    inp = np.clip(inp, 0, 1)
-    plt.imshow(inp)
-    if title is not None:
-        plt.title(title)
-    plt.pause(0.001)  # pause a bit so that plots are updated
-
-
-def train_model(model, criterion, optimizer, scheduler, num_epochs=10):
-    since = time.time()
-
-    best_model_wts = copy.deepcopy(model.state_dict())
-    best_acc = 0.0
-
-    for epoch in range(num_epochs):
-        print(f'Epoch {epoch}/{num_epochs - 1}')
-        print('-' * 10)
-        print(scheduler.get_last_lr())
-
-        # Each epoch has a training and validation phase
-        for phase in ['train', 'val']:
-            if phase == 'train':
-                model.train()  # Set model to training mode
-            else:
-                model.eval()   # Set model to evaluate mode
-
-            running_loss = 0.0
-            running_corrects = 0
-
-            # Iterate over data.
-            for inputs, labels in tqdm(dataloaders[phase]):
-                inputs = inputs.to(device)
-                labels = labels.to(device)
-
-                # zero the parameter gradients
-                optimizer.zero_grad()
-
-                # forward
-                # track history if only in train
-                with torch.set_grad_enabled(phase == 'train'):
-                    outputs = model(inputs)
-                    _, preds = torch.max(outputs, 1)
-                    loss = criterion(outputs, labels)
-
-                    # backward + optimize only if in training phase
-                    if phase == 'train':
-                        loss.backward()
-                        optimizer.step()
-
-                # statistics
-                running_loss += loss.item() * inputs.size(0)
-                running_corrects += torch.sum(preds == labels.data)
-            if phase == 'train':
-                scheduler.step()
-
-            epoch_loss = running_loss / dataset_sizes[phase]
-            epoch_acc = running_corrects.double() / dataset_sizes[phase]
-
-            print(f'{phase} Loss: {epoch_loss:.4f} Acc: {epoch_acc:.4f}')
-
-            # deep copy the model
-            if phase == 'val' and epoch_acc > best_acc:
-                best_acc = epoch_acc
-                best_model_wts = copy.deepcopy(model.state_dict())
-
-        print()
-
-    time_elapsed = time.time() - since
-    print(f'Training complete in {time_elapsed // 60:.0f}m {time_elapsed % 60:.0f}s')
-    print(f'Best val Acc: {best_acc:4f}')
-
-    # load best model weights
-    model.load_state_dict(best_model_wts)
-    return model
+#Create dataloaders - only load one at a time for test
+print("Setting up dataloaders")
+dataloaders = {x: torch.utils.data.DataLoader(image_datasets[x], batch_size=1,
+                                             shuffle=True, num_workers=0, collate_fn=collate_fn)
+              for x in ['test']}
 
 
 
-if __name__ == "__main__":
 
-    
+#Not operating on cuda - unnecessary 
+device = torch.device("cpu")
+print(device)
 
-    #Resize, flip, convert, normalize images for training
-    data_transforms = {
-        'train': transforms.Compose([
-            transforms.RandomResizedCrop(size=224,scale=(0.1, 1.0)),
-            #Flip image vertically and horizontally with prob 0.5
-            transforms.RandomHorizontalFlip(),
-            transforms.RandomVerticalFlip(),
-            transforms.ToTensor(),
-            transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
-        ]),
-        #Resize and crop images for validation
-        'val': transforms.Compose([
-            transforms.Resize(256),
-            transforms.CenterCrop(224),
-            transforms.ToTensor(),
-            transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
-        ]),
-        #Resize and crop images for testing (locked away)
-        'test': transforms.Compose([
-            transforms.Resize(256),
-            transforms.CenterCrop(224),
-            transforms.ToTensor(),
-            transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
-        ]),
-    }
-    
-        
+ 
 
-    #Split lesions into sets
-    splits = train_val_test_split(metadata)
+# Load a pretrained model and reset final fully connected layer for this particular classification problem.
+model = models.resnet50()# we do not specify pretrained, loading best model
+num_ftrs = model.fc.in_features
 
-    #create datasets
-    print("Setting up datasets")
-    image_datasets = {x: MyDataset(data_dir, metadata, data_transforms[x], sorted(list(splits[x]))) for x in ['test']}
-    
-    #print("Setting up dataloaders")
-    #dataloaders = {x: torch.utils.data.DataLoader(image_datasets[x], batch_size=8,
-    #                                             shuffle=True, num_workers=0, collate_fn=collate_fn)
-    #              for x in ['train', 'val']}
-    
-    
-    dataset_sizes = {x: len(image_datasets[x]) for x in ['test']}
-    class_names = image_datasets['test'].classes
-    num_classes = len(class_names)
-    print(dataset_sizes)
-    print(class_names)
-    
-    print("Setting up dataloaders")
-    dataloaders = {x: torch.utils.data.DataLoader(image_datasets[x], batch_size=1,
-                                                 shuffle=True, num_workers=0, collate_fn=collate_fn)
-                  for x in ['test']}
-    
-    
+# Add linear layer for classification
+model.fc = nn.Linear(num_ftrs, 7)
 
-    
-    
-    device = torch.device("cpu")
-    print(device)
+# Move the model to the correct device (cpu)
+model = model.to(device)
 
-     
-    
-    # Load a pretrained model and reset final fully connected layer for this particular classification problem.
-    
-    model = models.resnet50()# we do not specify pretrained=True, i.e. do not load default weights
-    num_ftrs = model.fc.in_features
-    
-    # Here the size of each output sample is set to 2.
-    # Alternatively, it can be generalized to nn.Linear(num_ftrs, len(class_names)).
-    model.fc = nn.Linear(num_ftrs, 7)
-    
-    # Move the model to the correct device (when we have access to a GPU)
+#Load in best model so far - set directory to save
+model.load_state_dict(torch.load('../final_model1'))
 
+all_labels = torch.tensor([])
+all_preds = torch.tensor([])
+#For every test case, add to a list of predicted and expected labels
+for inputs, labels in tqdm(dataloaders['test']):
+    inputs = inputs.to(device)
+    labels = labels.to(device)
     
-    model = model.to(device)
-    
-    
-    model.load_state_dict(torch.load('../final_modelResNet_NotNorm'))
-    
-    all_labels = torch.tensor([])
-    all_preds = torch.tensor([])
-    
-    for inputs, labels in tqdm(dataloaders['test']):
-        inputs = inputs.to(device)
-        labels = labels.to(device)
-        
-        all_labels = torch.cat((all_labels, labels))
-        out = model(inputs)
-        pre = torch.argmax(out, dim=1)
-        all_preds = torch.cat((all_preds, pre))
-    
-    trues = all_labels.tolist()
-    preds = all_preds.tolist()
-    
-    from sklearn.metrics import recall_score, precision_score
-    
-    print(preds)
-    print(trues)
-    
-    
-    print(recall_score(trues, preds, average=None))
-    print(precision_score(trues, preds, average=None))
-    
-    
-    
-    
-    
+    all_labels = torch.cat((all_labels, labels))
+    out = model(inputs)
+    pre = torch.argmax(out, dim=1)
+    all_preds = torch.cat((all_preds, pre))
+#Convert the tensors to lists for sklearn
+trues = all_labels.tolist()
+preds = all_preds.tolist()
+
+from sklearn.metrics import recall_score, precision_score
+
+print(preds)
+print(trues)
+
+#Get recall and precision
+print(recall_score(trues, preds, average=None))
+print(precision_score(trues, preds, average=None))
+
+
+
+
+
 
