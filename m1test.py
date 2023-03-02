@@ -228,7 +228,6 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=10):
 
 
 
-
 if __name__ == "__main__":
 
     
@@ -295,65 +294,22 @@ if __name__ == "__main__":
     print(inputs.shape)
     print(classes)
     
-    # Make a grid from batch
-    out = torchvision.utils.make_grid(inputs)
-    print(out.shape)
-    
-    imshow(out, title=[class_names[x] for x in classes])
-    
-    # Get a batch of val data
-    inputs, classes = next(iter(dataloaders['val']))
-    print(inputs.shape)
-    print(classes)
-    
-    # Make a grid from batch
-    out = torchvision.utils.make_grid(inputs)
-    print(out.shape)
-    
-    imshow(out, title=[class_names[x] for x in classes])
-    
+ 
     
     # Load a pretrained model and reset final fully connected layer for this particular classification problem.
     
-    model_ft = models.resnet50(weights="IMAGENET1K_V1")
-    #model_ft = models.vgg19_bn(weights="IMAGENET1K_V1")
+    model = models.resnet50()# we do not specify pretrained=True, i.e. do not load default weights
+    model.load_state_dict(torch.load('../final_modelResNet_NotNorm'))
     
-    #for param in model_ft.parameters():
-    #    param.requires_grad = False
+    batch = image_datasets['test']
+    batch = list(filter(lambda x: x is not None, batch))
+    images = torch.stack([b[0] for b in batch])
     
-    num_ftrs = model_ft.fc.in_features
-    
-    # Here the size of each output sample is set to 2.
-    # Alternatively, it can be generalized to nn.Linear(num_ftrs, len(class_names)).
-    model_ft.fc = nn.Linear(num_ftrs, 7)
-    
-    # Move the model to the correct device (when we have access to a GPU)
-    model_ft = model_ft.to(device)
-    
-    
-    # Let's set our loss function
-    criterion = nn.CrossEntropyLoss()
-    
-    # Setup the optimizer to update the model parameters
-    
-    optimizer_ft = optim.Adam(model_ft.parameters(), lr=0.00005)
-    
-    
-    # Decay LR by a factor of 0.2 every 3 epochs
-    scheduler1 = lr_scheduler.LinearLR(optimizer_ft, start_factor=0.05, total_iters=4)
-    scheduler2 = lr_scheduler.ExponentialLR(optimizer_ft, gamma=0.8)
-    scheduler = lr_scheduler.SequentialLR(optimizer_ft, 
-                                          schedulers=[scheduler1, scheduler2], milestones=[3])
-    
-    
-    
-    # Train and evaluate.  
-    model_ft = train_model(model_ft, criterion, optimizer_ft, scheduler,
-                           num_epochs=15)
-    
+    model(images)
 
-    
-    torch.save(model_ft.state_dict(), '../final_modelResNet_NotNorm')
-    
-    
-    
+
+
+
+
+
+
