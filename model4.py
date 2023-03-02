@@ -103,14 +103,8 @@ class MyDataset(torch.utils.data.Dataset):
         
     def get_class_names(self, metadata):
         #Return all classes as list of strings by iterating through metadata
-        class_names = set()
-        with open(metadata, newline='') as csvfile:
-            reader = csv.reader(csvfile, delimiter=',', quotechar='|')
-            next(reader)
-            for row in reader:
-                class_names.add(row[2])
         
-        return sorted(list(class_names)) #convert set to list and return
+        return ['nv','other'] #convert set to list and return
     
     #The images are organized cleanly, all ending with .jpg, and with uniform naming structure
     def get_image_filenames_with_labels(self, images_dir, class_labels, metadata, lesion_ids):
@@ -128,7 +122,10 @@ class MyDataset(torch.utils.data.Dataset):
             results = results.reset_index()
             for index, row in results.iterrows():
                 image_files += [images_dir + '/' + (row['image_id'] + '.jpg')]
-                labels += [class_labels[row['dx']]]
+                if row['dx'] == 'nv':
+                    labels += [0]
+                else:
+                    labels += [1]
                 info.append(tuple((row['age'], row['sex'], row['localization'],)))
         return image_files, labels, info
     
@@ -456,7 +453,7 @@ class MultimodalBertClassifier(nn.Module):
 
 
 # Quick check if the forward inferencing works
-model = MultimodalBertClassifier(num_labels=7)
+model = MultimodalBertClassifier(num_labels=2)
 
 
 # A useful function to see the size and # of params of a model
