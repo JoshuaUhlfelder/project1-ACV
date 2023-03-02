@@ -321,7 +321,7 @@ if __name__ == "__main__":
         
         all_labels = torch.cat((all_labels, labels))
         out = model(inputs)
-        pre = torch.argmax(out, dim=0)
+        pre = torch.argmax(out, dim=2)
         print(pre.shape)
         all_preds = torch.cat((all_preds, pre))
     
