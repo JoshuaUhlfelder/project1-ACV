@@ -373,7 +373,7 @@ class MultimodalBertClassifier(nn.Module):
         # 7*7 gets flattened to 49 sequence length.
         self.image_pos_emb = nn.Embedding(49, self.bert.config.hidden_size)
         
-        self.dropout = nn.Dropout(self.bert.config.hidden_dropout_prob)
+        #self.dropout = nn.Dropout(self.bert.config.hidden_dropout_prob)
         self.classifier = nn.Linear(self.bert.config.hidden_size, self.num_labels)
         
     def forward(
@@ -519,7 +519,7 @@ training_args = TrainingArguments(
 
 
 # Compute absolute learning rate
-base_learning_rate = 1e-3
+base_learning_rate = 1e-4
 total_train_batch_size = (
     training_args.train_batch_size * training_args.gradient_accumulation_steps * training_args.world_size
 )
@@ -532,10 +532,9 @@ train_dataset = image_datasets["train"]
 eval_dataset = image_datasets["val"]
 
 
-metric = evaluate.load("recall")
+metric = evaluate.load("accuracy")
 def compute_metrics(p):
-    print(np.argmax(p.predictions))
-    return metric.compute(predictions=np.argmax(p.predictions), references=p.label_ids)
+    return metric.compute(predictions=np.argmax(p.predictions, axis=1), references=p.label_ids)
 
 
 
