@@ -362,9 +362,9 @@ print('predicting')
 predictions = trainer.predict(image_datasets['test'])
 preds = np.argmax(predictions.predictions, axis=-1)
 trues = predictions.label_ids
-from sklearn.metrics import recall_score, precision_score
+from sklearn.metrics import recall_score, precision_score, accuracy_score
 
-
+print(accuracy_score(trues, preds))
 print(recall_score(trues, preds, average=None))
 print(precision_score(trues, preds, average=None))
 
