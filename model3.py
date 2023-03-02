@@ -269,7 +269,7 @@ class MyTokenizer():
             elif sex == 'female':
                 new_sex = 1
             else:
-                sex == 2
+                new_sex == 2
                    
             #Get the localization label from table in tokenizer
             try:
