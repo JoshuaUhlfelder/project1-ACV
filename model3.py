@@ -444,8 +444,11 @@ class MultimodalBertClassifier(nn.Module):
         
         loss = None
         if labels is not None:
+            print("labels no none")
             loss_fct = nn.CrossEntropyLoss()
             loss = loss_fct(logits.view(-1, self.num_labels), labels.view(-1))
+        else:
+            print("labels none")
         
         return SequenceClassifierOutput(
             loss=loss,
