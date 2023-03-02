@@ -444,11 +444,8 @@ class MultimodalBertClassifier(nn.Module):
         
         loss = None
         if labels is not None:
-            print("labels no none")
             loss_fct = nn.CrossEntropyLoss()
             loss = loss_fct(logits.view(-1, self.num_labels), labels.view(-1))
-        else:
-            print("labels none")
         
         return SequenceClassifierOutput(
             loss=loss,
@@ -460,6 +457,10 @@ class MultimodalBertClassifier(nn.Module):
 
 # Quick check if the forward inferencing works
 model = MultimodalBertClassifier(num_labels=7)
+
+for p in model.bert.embeddings.parameters():
+    p.requires_grad = False
+
 
 # A useful function to see the size and # of params of a model
 def get_model_info(model):
