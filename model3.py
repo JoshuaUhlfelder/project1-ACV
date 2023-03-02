@@ -532,9 +532,11 @@ train_dataset = image_datasets["train"]
 eval_dataset = image_datasets["val"]
 
 
-metric = evaluate.load("recall")
+metric = evaluate.load("precision")
 def compute_metrics(p):
-    return metric.compute(predictions=np.argmax(p.predictions, axis=1), references=p.label_ids)
+    logits, labels = p
+    predictions = np.argmax(logits, axis=-1)
+    return metric.compute(predictions=predictions, references=p.label_ids, average="weighted")
 
 
 
