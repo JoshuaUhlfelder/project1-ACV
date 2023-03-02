@@ -38,6 +38,7 @@ from transformers import (
     AutoTokenizer, 
     BertModel,
     BertPreTrainedModel,
+
 )
 from transformers.modeling_outputs import SequenceClassifierOutput
 import evaluate
@@ -52,7 +53,7 @@ data_dir = '../HAM10000_images'
 metadata = 'HAM10000_metadata.csv'
 
 #Set directory to output model
-output_dir = "../model2_final"
+output_dir = "../model3_final"
 
 
 #Dataset creation for train, val, test
@@ -254,7 +255,7 @@ class MyTokenizer():
         types = []
         mask = []
 
-        
+        #For each frame in the batch, put the sex, localization, and age into a list
         for i in range(length):
             input_tuple = tuple(input_tuples[1])
             print(input_tuple)
@@ -263,21 +264,25 @@ class MyTokenizer():
             loc = input_tuple[2]
             
             
-            
+            #Set sex to label
+            #0 = male, 1 = female
             if sex == 'male':
                 new_sex = 0
             else:
                 new_sex = 1
-                    
+                   
+            #Get the localization label from table in tokenizer
             try:
                 new_loc = self.localizations[loc]
             except:
                 raise Exception("Error finding localization")
             
+            #Add each list to end of prev. list
             ids.append([int(float(age)), int(new_sex), int(new_loc)])
             types.append([0,0,0])
             mask.append([1,1,1])
             
+        #Convert the lists of lists to tensors
         ids = torch.tensor(ids)
         types = torch.tensor(types)
         mask = torch.tensor(mask)
@@ -292,18 +297,14 @@ text_tokenizer = MyTokenizer(metadata)
 
 def collate_fn(batch):
     # Filter failed images first
-    print('\n\nHAHAHA:', batch[0])
     
     tokenized_text = text_tokenizer.tokenize([x[2] for x in batch])
-    print(tokenized_text)
 
     # Process the images
     processed_images = image_preprocessor([x[0] for x in batch], return_tensors="pt", padding=True)
     
     # Collect the labels
     labels = torch.LongTensor([x[1] for x in batch])
-    print(labels)
-    print(type(labels))
     
     return {
         "text": tokenized_text,
@@ -335,83 +336,16 @@ batch["text"]['attention_mask']
 batch["images"]["pixel_values"].shape
 
 
-# A useful function to see the size and # of params of a model
-def get_model_info(model):
-    # Compute number of trainable parameters in the model
-    num_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
-    
-    # Compute the size of the model in MB
-    param_size = 0
-    for param in model.parameters():
-        param_size += param.nelement() * param.element_size()
-    buffer_size = 0
-    for buffer in model.buffers():
-        buffer_size += buffer.nelement() * buffer.element_size()
-        
-    size_all_mb = (param_size + buffer_size) / 1024**2
-    
-    return num_params, size_all_mb
-
-
-    
-    
 
 
 
-# Create a lookup table to go between label name and index
-id2label = {}
-label2id = {}
-for idx, label in enumerate(class_names):
-    id2label[str(idx)] = label
-    label2id[label] = str(idx)
-
-
-device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-print(device)
-
-"""   
-# Get a batch of training data
-inputs, classes = next(iter(dataloaders['train']))
-print(inputs.shape)
-print(classes)
-
-# Make a grid from batch
-out = torchvision.utils.make_grid(inputs)
-print(out.shape)
-
-imshow(out, title=[class_names[x] for x in classes])
+#Multimodal Bert
 """
-
-
-# Load a pretrained model and reset final fully connected layer for this particular classification problem.
-
-
-image_processor = AutoImageProcessor.from_pretrained('google/vit-base-patch16-224')
-
-
-
-image_preprocessor = AutoImageProcessor.from_pretrained("microsoft/resnet-50")
-
-
-
-
-
-
-
-model = ViTForImageClassification.from_pretrained(
-    'google/vit-base-patch16-224',
-    num_labels=num_classes,
-    id2label=id2label,
-    label2id=label2id,
-    ignore_mismatched_sizes=True,
-)
-
-
-
-
-
-# Create a custom multimodal model by modifying BERT and using ResNet50
-# to do multimodal classification
+From Austin Reiter -
+ ---huggingface_examples.py---
+- with some modifications to fit data sizes and 
+addition of custom resnet50
+"""
 class MultimodalBertClassifier(nn.Module):
     def __init__(
         self,
@@ -445,6 +379,7 @@ class MultimodalBertClassifier(nn.Module):
     ):
         # Encode the images.  The last hidden state (which is what we want)
         # has a shape of: [batch_size, 2048, 7, 7].
+        
         image_outputs = self.resnet(**images)
         
         # Permute the dimensions and project to hidden dims for BERT.  Be sure
@@ -471,9 +406,11 @@ class MultimodalBertClassifier(nn.Module):
         image_emb = self.bert.embeddings.dropout(image_emb)
         
         # Embed the text, add positional embeddings and store the embedding outputs
+        print(text)
+        print
         text_embedding_output = self.bert.embeddings(
-            input_ids=text.input_ids,
-            token_type_ids=text.token_type_ids,
+            input_ids=text['input_ids'],
+            token_type_ids=text['token_type_ids'],
         )
         
         # Concatenate all of the embeddings on the time dimension
@@ -484,7 +421,7 @@ class MultimodalBertClassifier(nn.Module):
         # exclude any of the padded text token embeddings.  In Huggingface notation,
         # 1 means keep and 0 means ignore
         image_attention_mask = torch.LongTensor([1] * image_emb.shape[1]).repeat(image_emb.shape[0], 1).to(image_emb.device)
-        extended_attention_mask = torch.cat([text.attention_mask, image_attention_mask], 1)
+        extended_attention_mask = torch.cat([text["attention_mask"], image_attention_mask], 1)
         
         # Make broadcastable attention masks so that masked tokens are ignored (does some pre-processing
         # to prepare for the encoder)
@@ -516,69 +453,69 @@ class MultimodalBertClassifier(nn.Module):
 
 
 
+# Quick check if the forward inferencing works
+model = MultimodalBertClassifier(num_labels=7)
+
+# A useful function to see the size and # of params of a model
+def get_model_info(model):
+    # Compute number of trainable parameters in the model
+    num_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    
+    # Compute the size of the model in MB
+    param_size = 0
+    for param in model.parameters():
+        param_size += param.nelement() * param.element_size()
+    buffer_size = 0
+    for buffer in model.buffers():
+        buffer_size += buffer.nelement() * buffer.element_size()
+        
+    size_all_mb = (param_size + buffer_size) / 1024**2
+    
+    return num_params, size_all_mb
+    
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-#Print out model info
-print(model.classifier)
-print("Num labels:", model.num_labels)
-print("\nModel config:", model.config)
+# Print model info
 num_params, size_all_mb = get_model_info(model)
+
 print("Number of trainable params:", num_params)
 print('Model size: {:.3f}MB'.format(size_all_mb))
 
-"""
-#Freeze model
-for p in model.parameters():
-    p.requires_grad = False
 
-# Turn back on the classifier weights
-for p in model.classifier.parameters():
-    p.requires_grad=True
-"""
 
-# Ok now how many trainable parameters do we have?
-num_params, size_all_mb = get_model_info(model)
-print("Number of trainable params:", num_params)
-print('Model size: {:.3f}MB'.format(size_all_mb))
 
+# Create a lookup table to go between label name and index
+id2label = {}
+label2id = {}
+for idx, label in enumerate(class_names):
+    id2label[str(idx)] = label
+    label2id[label] = str(idx)
+
+
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+print(device)
 
 training_args = TrainingArguments(
     output_dir=output_dir,
-    per_device_train_batch_size=64,
-    per_device_eval_batch_size=16,
+    per_device_train_batch_size=8,
+    per_device_eval_batch_size=32,
     evaluation_strategy="epoch",
     save_strategy="epoch",
-    num_train_epochs=9,
-    lr_scheduler_type='cosine',
+    num_train_epochs=3,
+    lr_scheduler_type="cosine",
     logging_steps=10,
     save_total_limit=2,
     remove_unused_columns=False,
     push_to_hub=False,
     load_best_model_at_end=True,
     dataloader_num_workers=0,  
-    #gradient_accumulation_steps=8,
+    gradient_accumulation_steps=4,
 )
 
+
+
+
+# Compute absolute learning rate
 base_learning_rate = 1e-3
 total_train_batch_size = (
     training_args.train_batch_size * training_args.gradient_accumulation_steps * training_args.world_size
@@ -586,21 +523,25 @@ total_train_batch_size = (
 
 training_args.learning_rate = base_learning_rate * total_train_batch_size / 256
 print("Set learning rate to:", training_args.learning_rate)
-    
+
+
 metric = evaluate.load("accuracy")
 def compute_metrics(p):
     return metric.compute(predictions=np.argmax(p.predictions, axis=1), references=p.label_ids)
-    
-print("TRAINING")
+
+
+
+# Create the trainer
 trainer = Trainer(
     model=model,
     args=training_args,
-    train_dataset=image_datasets['train'],
-    eval_dataset=image_datasets['val'],
-    tokenizer=image_processor,
+    train_dataset=image_datasets["train"],
+    eval_dataset=image_datasets["val"],
     compute_metrics=compute_metrics,
     data_collator=collate_fn,
 )
+
+
 
 # Train
 train_results = trainer.train()
@@ -608,9 +549,3 @@ trainer.save_model()
 trainer.log_metrics("train", train_results.metrics)
 trainer.save_metrics("train", train_results.metrics)
 trainer.save_state()
-
-
-#Evaluate on test set
-#metrics = trainer.evaluate(image_datasets['test'])
-#trainer.log_metrics("eval", metrics)
-
