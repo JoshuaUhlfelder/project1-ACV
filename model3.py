@@ -504,10 +504,10 @@ training_args = TrainingArguments(
     per_device_eval_batch_size=64,
     evaluation_strategy="epoch",
     save_strategy="epoch",
-    num_train_epochs=1,
-    lr_scheduler_type="linear",
+    num_train_epochs=5,
+    lr_scheduler_type="cosine",
     logging_steps=1,
-    save_total_limit=2,
+    save_total_limit=0,
     remove_unused_columns=False,
     push_to_hub=False,
     load_best_model_at_end=True,
@@ -559,6 +559,5 @@ trainer.save_state()
 
 metrics = trainer.evaluate(image_datasets["val"])
 trainer.log_metrics("test", metrics)
-
 
 
