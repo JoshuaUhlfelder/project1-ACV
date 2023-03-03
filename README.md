@@ -16,11 +16,11 @@ In this repo, there are four types of files:
 Note: Data files should be added in the underlying directory, or model/testing/toe files can be modified to take in data from any directory. If using the HAM10000 dataset, create a folder with all and only image data named 'HAM10000_images'. Put this in the underlying directoy. Add the HAM10000_metadata file in the same directory as the model you are running.
 
 # Model training files
-model1.py - trains a ResNet50 pretrained from ImageNet to classify skin lesions\\
-model2.py - trains a ViT pretrained from ImageNet to classify skin lesions\\
-model3.py - trains a BERT with a pretrained ResNet50 image encoder and a custom information encoder with demographic data about the skin lesion
-model4.py - trains a binary classification BERT with a pretrained ResNet50 image encoder and a custom information encoder
-model5.py - trains a BERT with a pretrained ResNet50 image encoder and a BERT text encoder with demographic data about the skin lesion
+1. model1.py - trains a ResNet50 pretrained from ImageNet to classify skin lesions
+2. model2.py - trains a ViT pretrained from ImageNet to classify skin lesions
+3. model3.py - trains a BERT with a pretrained ResNet50 image encoder and a custom information encoder with demographic data about the skin lesion
+4. model4.py - trains a binary classification BERT with a pretrained ResNet50 image encoder and a custom information encoder
+5. model5.py - trains a BERT with a pretrained ResNet50 image encoder and a BERT text encoder with demographic data about the skin lesion
 
 model3.py does not have an accompanying test or toe file, as evaluation is completed after training in the script
 Models 4-5 showed not difference in performance to model3, so they also lack evaluation scripts.
