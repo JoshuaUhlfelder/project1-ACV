@@ -26,12 +26,14 @@ model3.py does not have an accompanying test or toe file, as evaluation is compl
 Models 4-5 showed not difference in performance to model3, so they also lack evaluation scripts.
 
 # Testing files
-m1test.py - outputs metrics after running test data on model1 created from model1.py
-m2test.py - outputs metrics after running test data on model2 created from model2.py
+1. m1test.py - outputs metrics after running test data on model1 created from model1.py
+2. m2test.py - outputs metrics after running test data on model2 created from model2.py
+
 
 # Toe files
-m1toe.py - classifies data on model1
-m2toe.py - classifies data on model2
+1. m1toe.py - classifies data on model1
+2. m2toe.py - classifies data on model2
+
 
 # Data files
 HAM10000_metadata.csv and toe_metadata.csv should have the same format. HAM10000_metadata can be downloaded with the HAM10000 dataset. Both should be in the pwd.
