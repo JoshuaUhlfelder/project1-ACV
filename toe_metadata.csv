@@ -1,2 +1,2 @@
 lesion_id,image_id,dx,dx_type,age,sex,localization
-T1,IMG_5441,nv,histo,20.0,male,foot
+T1,IMG_6626,nv,histo,20.0,male,back
