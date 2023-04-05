@@ -240,6 +240,7 @@ for inputs, labels in tqdm(dataloaders['test']):
     
     all_labels = torch.cat((all_labels, labels))
     out = model(inputs)
+    print("Result:", out)
     pre = torch.argmax(out, dim=1)
     all_preds = torch.cat((all_preds, pre))
 #Convert the tensors to lists for sklearn

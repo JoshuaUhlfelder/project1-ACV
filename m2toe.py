@@ -317,6 +317,7 @@ trainer = Trainer(
 
 print('predicting')
 predictions = trainer.predict(image_datasets['test'])
+print("Result:", predictions.predictions)
 preds = np.argmax(predictions.predictions, axis=-1)
 trues = predictions.label_ids
 from sklearn.metrics import recall_score, precision_score
